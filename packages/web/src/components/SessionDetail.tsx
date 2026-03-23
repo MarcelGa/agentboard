@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { type DashboardSession, type DashboardPR, isPRMergeReady } from "@/lib/types";
 import { CI_STATUS } from "@composio/ao-core/types";
@@ -216,6 +216,18 @@ export function SessionDetail({
     ? `/exit\nopencode --session ${opencodeSessionId}\n`
     : undefined;
 
+  // Detect process runtime from runtimeHandle metadata blob
+  const runtimeHandleRaw = session.metadata["runtimeHandle"];
+  let isProcessRuntime = false;
+  if (runtimeHandleRaw) {
+    try {
+      const parsed = JSON.parse(runtimeHandleRaw) as { runtimeName?: string };
+      isProcessRuntime = parsed.runtimeName === "process";
+    } catch {
+      // ignore parse errors
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-bg-base)]">
       {/* Nav bar — glass effect */}
@@ -379,7 +391,7 @@ export function SessionDetail({
         {/* ── PR Card ─────────────────────────────────────────────── */}
         {pr && <PRCard pr={pr} sessionId={session.id} />}
 
-        {/* ── Terminal ─────────────────────────────────────────────── */}
+        {/* ── Terminal / Output ───────────────────────────────────── */}
         <div className={pr ? "mt-6" : ""}>
           <div className="mb-3 flex items-center gap-2">
             <div
@@ -387,19 +399,89 @@ export function SessionDetail({
               style={{ background: isOrchestrator ? accentColor : activity.color, opacity: 0.7 }}
             />
             <span className="text-[10px] font-bold uppercase tracking-[0.10em] text-[var(--color-text-tertiary)]">
-              Terminal
+              {isProcessRuntime ? "Output" : "Terminal"}
             </span>
           </div>
-          <DirectTerminal
-            sessionId={session.id}
-            startFullscreen={startFullscreen}
-            variant={terminalVariant}
-            height={terminalHeight}
-            isOpenCodeSession={isOpenCodeSession}
-            reloadCommand={isOpenCodeSession ? reloadCommand : undefined}
-          />
+          {isProcessRuntime ? (
+            <ProcessOutput sessionId={session.id} status={session.status} height={terminalHeight} />
+          ) : (
+            <DirectTerminal
+              sessionId={session.id}
+              startFullscreen={startFullscreen}
+              variant={terminalVariant}
+              height={terminalHeight}
+              isOpenCodeSession={isOpenCodeSession}
+              reloadCommand={isOpenCodeSession ? reloadCommand : undefined}
+            />
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Process output viewer ─────────────────────────────────────────────
+
+const ACTIVE_STATUSES = new Set(["spawning", "working", "idle"]);
+
+function ProcessOutput({
+  sessionId,
+  status,
+  height,
+}: {
+  sessionId: string;
+  status: string;
+  height: string;
+}) {
+  const [output, setOutput] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isActive = ACTIVE_STATUSES.has(status);
+
+  const fetchOutput = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/output?lines=200`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(body.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      const data = (await res.json()) as { output: string };
+      setError(null);
+      setOutput(data.output ?? "");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch output");
+    }
+  }, [sessionId]);
+
+  // Initial fetch + polling while active
+  useEffect(() => {
+    void fetchOutput();
+    if (!isActive) return;
+    const interval = setInterval(() => void fetchOutput(), 2000);
+    return () => clearInterval(interval);
+  }, [fetchOutput, isActive]);
+
+  // Auto-scroll to bottom when output changes
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [output]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="overflow-auto rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] p-3 font-mono text-[12px] leading-relaxed text-[var(--color-text-secondary)]"
+      style={{ height }}
+    >
+      {error ? (
+        <span className="text-[var(--color-status-error)]">Error: {error}</span>
+      ) : output.length === 0 ? (
+        <span className="text-[var(--color-text-muted)] opacity-50">No output yet.</span>
+      ) : (
+        <pre className="m-0 whitespace-pre-wrap break-words">{output}</pre>
+      )}
+      <div ref={bottomRef} />
     </div>
   );
 }

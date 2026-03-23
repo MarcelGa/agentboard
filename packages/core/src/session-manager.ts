@@ -1073,7 +1073,8 @@ export function createSessionManager(deps: SessionManagerDeps): OpenCodeSessionM
           AO_CALLER_TYPE: "agent",
           AO_PROJECT_ID: spawnConfig.projectId,
           AO_CONFIG_PATH: config.configPath,
-          ...(config.port !== undefined && config.port !== null && { AO_PORT: String(config.port) }),
+          ...(config.port !== undefined &&
+            config.port !== null && { AO_PORT: String(config.port) }),
         },
       });
     } catch (err) {
@@ -2427,5 +2428,37 @@ export function createSessionManager(deps: SessionManagerDeps): OpenCodeSessionM
     return restoredSession;
   }
 
-  return { spawn, spawnOrchestrator, restore, list, get, kill, cleanup, send, claimPR, remap };
+  async function getOutput(sessionId: SessionId, lines?: number): Promise<string> {
+    const { raw, project } = requireSessionRecord(sessionId);
+    const parsedHandle = raw["runtimeHandle"]
+      ? safeJsonParse<RuntimeHandle>(raw["runtimeHandle"])
+      : null;
+    if (!parsedHandle) {
+      return "";
+    }
+    const runtimeName = parsedHandle.runtimeName ?? project.runtime ?? config.defaults.runtime;
+    const runtimePlugin = registry.get<Runtime>("runtime", runtimeName);
+    if (!runtimePlugin) {
+      throw new Error(`No runtime plugin for session ${sessionId}`);
+    }
+    try {
+      return (await runtimePlugin.getOutput(parsedHandle, lines)) ?? "";
+    } catch {
+      return "";
+    }
+  }
+
+  return {
+    spawn,
+    spawnOrchestrator,
+    restore,
+    list,
+    get,
+    kill,
+    cleanup,
+    send,
+    getOutput,
+    claimPR,
+    remap,
+  };
 }

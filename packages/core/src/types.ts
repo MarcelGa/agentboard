@@ -1181,6 +1181,7 @@ export interface SessionManager {
     options?: { dryRun?: boolean; purgeOpenCode?: boolean },
   ): Promise<CleanupResult>;
   send(sessionId: SessionId, message: string): Promise<void>;
+  getOutput(sessionId: SessionId, lines?: number): Promise<string>;
   claimPR(sessionId: SessionId, prRef: string, options?: ClaimPROptions): Promise<ClaimPRResult>;
 }
 
