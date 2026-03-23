@@ -48,7 +48,7 @@ jobs:
 
       # --- Build project ---
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r --filter '!@composio/ao-web' build
+      - run: pnpm -r --filter '!@agentboard/ao-web' build
 
       # --- Run integration tests ---
       - name: Run integration tests
@@ -57,8 +57,5 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
-          # Note: COMPOSIO_API_KEY is intentionally not passed here.
-          # When both keys are set, the plugin prefers the Composio transport
-          # which requires @composio/core SDK installed. The direct LINEAR_API_KEY
           # transport needs no extra dependencies.
         run: pnpm test:integration

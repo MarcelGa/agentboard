@@ -97,7 +97,7 @@ Loads plugins and provides access to them:
 - workspace-worktree, workspace-clone
 - tracker-github, tracker-linear
 - scm-github
-- notifier-desktop, notifier-slack, notifier-composio, notifier-webhook
+- notifier-desktop, notifier-slack, notifier-webhook
 - terminal-iterm2, terminal-web
 
 ### `src/config.ts` — Configuration Loading
@@ -141,7 +141,7 @@ Loads and validates `agent-orchestrator.yaml`:
 
 ### Feedback Tools (v1)
 
-`@composio/ao-core` exports two structured feedback tool contracts:
+`@agentboard/ao-core` exports two structured feedback tool contracts:
 
 - `bug_report`
 - `improvement_suggestion`
@@ -158,7 +158,7 @@ Both share the same required input fields:
 Example:
 
 ```ts
-import { FEEDBACK_TOOL_NAMES, FeedbackReportStore, getFeedbackReportsDir } from "@composio/ao-core";
+import { FEEDBACK_TOOL_NAMES, FeedbackReportStore, getFeedbackReportsDir } from "@agentboard/ao-core";
 
 const reportsDir = getFeedbackReportsDir(configPath, projectPath);
 const store = new FeedbackReportStore(reportsDir);
