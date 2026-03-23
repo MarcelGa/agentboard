@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { SessionManager } from "@composio/ao-core";
+import type { SessionManager } from "@agentboard/ao-core";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks
@@ -64,9 +64,9 @@ vi.mock("ora", () => ({
   }),
 }));
 
-vi.mock("@composio/ao-core", async (importOriginal) => {
+vi.mock("@agentboard/ao-core", async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  const actual = await importOriginal<typeof import("@composio/ao-core")>();
+  const actual = await importOriginal<typeof import("@agentboard/ao-core")>();
   const normalizeOrchestratorSessionStrategy =
     actual.normalizeOrchestratorSessionStrategy ??
     ((strategy: string | undefined) => {
@@ -365,7 +365,7 @@ describe("start command — project resolution", () => {
 describe("start command — URL argument", () => {
   it("reuses existing clone and generates config", async () => {
     const repoDir = join(tmpDir, "DevOS");
-    createFakeRepo(repoDir, "https://github.com/ComposioHQ/DevOS.git", {
+    createFakeRepo(repoDir, "https://github.com/agentboard/DevOS.git", {
       "package.json": "{}",
       "pnpm-lock.yaml": "",
     });
@@ -375,7 +375,7 @@ describe("start command — URL argument", () => {
       "node",
       "test",
       "start",
-      "https://github.com/ComposioHQ/DevOS",
+      "https://github.com/agentboard/DevOS",
       "--no-dashboard",
       "--no-orchestrator",
     ]);

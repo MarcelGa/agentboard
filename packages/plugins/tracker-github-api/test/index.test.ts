@@ -7,7 +7,7 @@ const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
 import { create, manifest } from "../src/index.js";
-import type { ProjectConfig } from "@composio/ao-core";
+import type { ProjectConfig } from "@agentboard/ao-core";
 
 // ---------------------------------------------------------------------------
 // Fixtures

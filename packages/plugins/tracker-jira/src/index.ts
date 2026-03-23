@@ -24,7 +24,7 @@ import type {
   IssueUpdate,
   CreateIssueInput,
   ProjectConfig,
-} from "@composio/ao-core";
+} from "@agentboard/ao-core";
 
 // =============================================================================
 // Jira API Client

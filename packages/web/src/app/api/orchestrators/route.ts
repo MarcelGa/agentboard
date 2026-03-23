@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { generateOrchestratorPrompt } from "@composio/ao-core";
+import { generateOrchestratorPrompt } from "@agentboard/ao-core";
 import { getServices } from "@/lib/services";
 import { validateIdentifier } from "@/lib/validation";
 

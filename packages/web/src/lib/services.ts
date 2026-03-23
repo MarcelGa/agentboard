@@ -32,20 +32,20 @@ import {
   DEFAULT_DECOMPOSER_CONFIG,
   isOrchestratorSession,
   TERMINAL_STATUSES,
-} from "@composio/ao-core";
+} from "@agentboard/ao-core";
 
 // Static plugin imports — webpack needs these to be string literals
-import pluginRuntimeTmux from "@composio/ao-plugin-runtime-tmux";
-import pluginRuntimeProcess from "@composio/ao-plugin-runtime-process";
-import pluginAgentClaudeCode from "@composio/ao-plugin-agent-claude-code";
-import pluginAgentOpencode from "@composio/ao-plugin-agent-opencode";
-import pluginWorkspaceWorktree from "@composio/ao-plugin-workspace-worktree";
-import pluginScmAzuredevops from "@composio/ao-plugin-scm-azuredevops";
-import pluginScmGithub from "@composio/ao-plugin-scm-github";
-import pluginTrackerGithub from "@composio/ao-plugin-tracker-github";
-import pluginTrackerJira from "@composio/ao-plugin-tracker-jira";
-import pluginTrackerGithubApi from "@composio/ao-plugin-tracker-github-api";
-import pluginTrackerLinear from "@composio/ao-plugin-tracker-linear";
+import pluginRuntimeTmux from "@agentboard/ao-plugin-runtime-tmux";
+import pluginRuntimeProcess from "@agentboard/ao-plugin-runtime-process";
+import pluginAgentClaudeCode from "@agentboard/ao-plugin-agent-claude-code";
+import pluginAgentOpencode from "@agentboard/ao-plugin-agent-opencode";
+import pluginWorkspaceWorktree from "@agentboard/ao-plugin-workspace-worktree";
+import pluginScmAzuredevops from "@agentboard/ao-plugin-scm-azuredevops";
+import pluginScmGithub from "@agentboard/ao-plugin-scm-github";
+import pluginTrackerGithub from "@agentboard/ao-plugin-tracker-github";
+import pluginTrackerJira from "@agentboard/ao-plugin-tracker-jira";
+import pluginTrackerGithubApi from "@agentboard/ao-plugin-tracker-github-api";
+import pluginTrackerLinear from "@agentboard/ao-plugin-tracker-linear";
 
 export interface Services {
   config: OrchestratorConfig;

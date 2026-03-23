@@ -4,7 +4,7 @@ import {
   GLOBAL_PAUSE_UNTIL_KEY,
   isOrchestratorSession,
   parsePauseUntil,
-} from "@composio/ao-core";
+} from "@agentboard/ao-core";
 
 export interface GlobalPauseState {
   pausedUntil: string;

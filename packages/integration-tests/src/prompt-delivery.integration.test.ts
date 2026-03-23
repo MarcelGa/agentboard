@@ -19,8 +19,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import claudeCodePlugin from "@composio/ao-plugin-agent-claude-code";
-import runtimeTmuxPlugin from "@composio/ao-plugin-runtime-tmux";
+import claudeCodePlugin from "@agentboard/ao-plugin-agent-claude-code";
+import runtimeTmuxPlugin from "@agentboard/ao-plugin-runtime-tmux";
 import {
   isTmuxAvailable,
   killSessionsByPrefix,

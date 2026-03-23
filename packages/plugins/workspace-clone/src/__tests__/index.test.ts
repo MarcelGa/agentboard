@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ProjectConfig } from "@composio/ao-core";
+import * as childProcess from "node:child_process";
+import * as fs from "node:fs";
+import type { ProjectConfig } from "@agentboard/ao-core";
 import type * as IndexModule from "../index.js";
 
 // ---------------------------------------------------------------------------

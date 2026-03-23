@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { ProjectConfig } from "@composio/ao-core";
+import type { ProjectConfig } from "@agentboard/ao-core";
 
 // ---------------------------------------------------------------------------
 // Mock fetch globally

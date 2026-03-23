@@ -36,7 +36,7 @@ import {
   type ReviewComment,
   type AutomatedComment,
   type MergeReadiness,
-} from "@composio/ao-core";
+} from "@agentboard/ao-core";
 
 // =============================================================================
 // ADO API Client
