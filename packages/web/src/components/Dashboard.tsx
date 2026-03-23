@@ -17,8 +17,7 @@ import { PRTableRow } from "./PRStatus";
 import { DynamicFavicon } from "./DynamicFavicon";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { ProjectSidebar } from "./ProjectSidebar";
-import { BacklogPanel } from "./BacklogPanel";
-import type { BacklogState } from "./BacklogPanel";
+import { BacklogPanel, type BacklogState } from "./BacklogPanel";
 import type { ProjectInfo } from "@/lib/project-name";
 
 interface DashboardProps {

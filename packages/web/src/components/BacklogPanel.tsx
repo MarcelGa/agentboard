@@ -110,7 +110,7 @@ export function BacklogPanel({
     setSpawning({});
     setSpawnedIds(new Set());
     setSpawnErrors({});
-  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [projectId]); // intentionally omits other deps — resets only on project change
 
   const handlePoll = useCallback(async () => {
     setLoading(true);
