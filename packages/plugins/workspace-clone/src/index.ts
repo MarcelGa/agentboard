@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync, rmSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, rmSync, mkdirSync, readdirSync, accessSync, constants } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import type {
   PluginModule,
   Workspace,
@@ -20,9 +20,61 @@ export const manifest = {
   version: "0.1.0",
 };
 
+/** Well-known git install paths to probe when git is not on PATH */
+const GIT_FALLBACK_PATHS: string[] =
+  platform() === "win32"
+    ? [
+        "C:\\Program Files\\Git\\bin\\git.exe",
+        "C:\\Program Files (x86)\\Git\\bin\\git.exe",
+        join(homedir(), "AppData\\Local\\Programs\\Git\\bin\\git.exe"),
+      ]
+    : ["/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git"];
+
+/** Cached resolved path to the git executable */
+let resolvedGitPath: string | undefined;
+
+/**
+ * Resolve the path to the git executable.
+ * First tries `which`/`where` to respect the current PATH, then probes
+ * well-known install locations so that environments where PATH does not
+ * include the git directory (e.g. GUI launchers on Windows) still work.
+ */
+async function resolveGit(): Promise<string> {
+  if (resolvedGitPath !== undefined) return resolvedGitPath;
+
+  // 1. Try locating git via the OS lookup command
+  const lookupCmd = platform() === "win32" ? "where" : "which";
+  try {
+    const { stdout } = await execFileAsync(lookupCmd, ["git"]);
+    const found = stdout.trim().split(/\r?\n/)[0];
+    if (found) {
+      resolvedGitPath = found;
+      return resolvedGitPath;
+    }
+  } catch {
+    // `which`/`where` not available or git not on PATH — fall through
+  }
+
+  // 2. Probe well-known install paths
+  for (const candidate of GIT_FALLBACK_PATHS) {
+    try {
+      accessSync(candidate, constants.X_OK);
+      resolvedGitPath = candidate;
+      return resolvedGitPath;
+    } catch {
+      // Not found at this path
+    }
+  }
+
+  // 3. Last resort: return bare "git" and let the OS throw a meaningful error
+  resolvedGitPath = "git";
+  return resolvedGitPath;
+}
+
 /** Run a git command in a given directory */
 async function git(cwd: string, ...args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync("git", args, { cwd });
+  const gitBin = await resolveGit();
+  const { stdout } = await execFileAsync(gitBin, args, { cwd });
   return stdout.trimEnd();
 }
 
@@ -80,7 +132,8 @@ export function create(config?: Record<string, unknown>): Workspace {
 
       // Clone using --reference for faster clone with shared objects
       try {
-        await execFileAsync("git", [
+        const gitBin = await resolveGit();
+        await execFileAsync(gitBin, [
           "clone",
           "--reference",
           repoPath,
@@ -169,7 +222,8 @@ export function create(config?: Record<string, unknown>): Workspace {
     async exists(workspacePath: string): Promise<boolean> {
       if (!existsSync(workspacePath)) return false;
       try {
-        await execFileAsync("git", ["rev-parse", "--is-inside-work-tree"], {
+        const gitBin = await resolveGit();
+        await execFileAsync(gitBin, ["rev-parse", "--is-inside-work-tree"], {
           cwd: workspacePath,
           timeout: 30_000,
         });
@@ -192,7 +246,8 @@ export function create(config?: Record<string, unknown>): Workspace {
 
       // Clone fresh — clean up partial directory on failure
       try {
-        await execFileAsync("git", [
+        const gitBin = await resolveGit();
+        await execFileAsync(gitBin, [
           "clone",
           "--reference",
           repoPath,
