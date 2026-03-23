@@ -17,7 +17,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const { config, registry } = await getServices();
-    const allIssues: Array<{ projectId: string; id: string; title: string; url: string; state: string; labels: string[] }> = [];
+    const allIssues: Array<{
+      projectId: string;
+      id: string;
+      title: string;
+      url: string;
+      state: string;
+      labels: string[];
+      assignee?: string;
+      issueType?: string;
+      statusName?: string;
+    }> = [];
+    const errors: Array<{ projectId: string; error: string }> = [];
 
     for (const [projectId, project] of Object.entries(config.projects)) {
       if (projectFilter && projectId !== projectFilter) continue;
@@ -34,12 +45,19 @@ export async function GET(request: NextRequest) {
         for (const issue of issues) {
           allIssues.push({ projectId, ...issue });
         }
-      } catch {
-        // Skip unavailable trackers
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        console.error(`[api/issues] Failed to fetch issues for project "${projectId}":`, err);
+        errors.push({ projectId, error: message });
       }
     }
 
-    return NextResponse.json({ issues: allIssues });
+    // If a specific project was requested and it failed, surface the error.
+    if (projectFilter && errors.length > 0 && allIssues.length === 0) {
+      return NextResponse.json({ error: errors[0]!.error, errors }, { status: 502 });
+    }
+
+    return NextResponse.json({ issues: allIssues, errors: errors.length > 0 ? errors : undefined });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to fetch issues" },
@@ -76,12 +94,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (!project.tracker) {
-      return NextResponse.json({ error: "No tracker configured for this project" }, { status: 422 });
+      return NextResponse.json(
+        { error: "No tracker configured for this project" },
+        { status: 422 },
+      );
     }
 
     const tracker = registry.get<Tracker>("tracker", project.tracker.plugin);
     if (!tracker?.createIssue) {
-      return NextResponse.json({ error: "Tracker does not support issue creation" }, { status: 422 });
+      return NextResponse.json(
+        { error: "Tracker does not support issue creation" },
+        { status: 422 },
+      );
     }
 
     const labels = body.addToBacklog ? ["agent:backlog"] : [];
