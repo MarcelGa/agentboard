@@ -92,7 +92,7 @@ worktree=$worktree_path
 branch=$(cd "$worktree_path" && git branch --show-current || echo "detached")
 status=starting
 EOF
-    [ -n "$linear_id" ] && echo "issue=https://linear.app/composio/issue/$linear_id" >> "$SESSION_DIR/$session_name"
+    [ -n "$linear_id" ] && echo "issue=https://linear.app/agentboard/issue/$linear_id" >> "$SESSION_DIR/$session_name"
     
     echo -e "${GREEN}✓ Created tmux session: $session_name${NC}"
     echo -e "${GREEN}✓ Started Claude in session${NC}"
@@ -193,7 +193,7 @@ cmd_cleanup() {
         if [ -n "$pr" ]; then
             local pr_num=$(echo "$pr" | grep -o '[0-9]*$')
             if [ -n "$pr_num" ]; then
-                local state=$(gh pr view "$pr_num" --repo ComposioHQ/integrator --json state -q '.state' 2>/dev/null)
+                local state=$(gh pr view "$pr_num" --repo agentboard/integrator --json state -q '.state' 2>/dev/null)
                 [ "$state" = "MERGED" ] && echo -e "${YELLOW}PR #$pr_num merged - killing $session${NC}" && cmd_kill "$session" && continue
             fi
         fi

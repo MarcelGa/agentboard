@@ -7,7 +7,7 @@ MAIN_REPO=~/agent-orchestrator
 WORKTREE_DIR=~/.worktrees/ao
 SESSION_DIR=~/.ao-sessions
 DEFAULT_BRANCH="main"
-GITHUB_REPO="ComposioHQ/agent-orchestrator"
+GITHUB_REPO="agentboard/agentboard"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -85,7 +85,7 @@ worktree=$worktree_path
 branch=$(cd "$worktree_path" && git branch --show-current || echo "detached")
 status=starting
 EOF
-    [ -n "$linear_id" ] && echo "issue=https://linear.app/composio/issue/$linear_id" >> "$SESSION_DIR/$session_name"
+    [ -n "$linear_id" ] && echo "issue=https://linear.app/agentboard/issue/$linear_id" >> "$SESSION_DIR/$session_name"
 
     echo -e "${GREEN}✓ Created tmux session: $session_name${NC}"
     echo -e "${GREEN}✓ Started Claude in session${NC}"

@@ -85,7 +85,7 @@ fi
 # Update metadata with ticket info
 if [ "$PROJECT" = "integrator" ]; then
     grep -q "^issue=" "$SESSIONS_DIR/$SESSION" 2>/dev/null || \
-        echo "issue=https://linear.app/composio/issue/$TICKET" >> "$SESSIONS_DIR/$SESSION"
+        echo "issue=https://linear.app/agentboard/issue/$TICKET" >> "$SESSIONS_DIR/$SESSION"
     grep -q "^summary=" "$SESSIONS_DIR/$SESSION" 2>/dev/null && \
         sed -i '' "s|^summary=.*|summary=Starting work on $TICKET (custom context)|" "$SESSIONS_DIR/$SESSION" || \
         echo "summary=Starting work on $TICKET (custom context)" >> "$SESSIONS_DIR/$SESSION"
