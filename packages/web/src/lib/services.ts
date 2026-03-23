@@ -39,8 +39,10 @@ import pluginRuntimeTmux from "@composio/ao-plugin-runtime-tmux";
 import pluginAgentClaudeCode from "@composio/ao-plugin-agent-claude-code";
 import pluginAgentOpencode from "@composio/ao-plugin-agent-opencode";
 import pluginWorkspaceWorktree from "@composio/ao-plugin-workspace-worktree";
+import pluginScmAzuredevops from "@composio/ao-plugin-scm-azuredevops";
 import pluginScmGithub from "@composio/ao-plugin-scm-github";
 import pluginTrackerGithub from "@composio/ao-plugin-tracker-github";
+import pluginTrackerJira from "@composio/ao-plugin-tracker-jira";
 import pluginTrackerGithubApi from "@composio/ao-plugin-tracker-github-api";
 import pluginTrackerLinear from "@composio/ao-plugin-tracker-linear";
 
@@ -82,9 +84,11 @@ async function initServices(): Promise<Services> {
   registry.register(pluginAgentClaudeCode);
   registry.register(pluginAgentOpencode);
   registry.register(pluginWorkspaceWorktree);
+  registry.register(pluginScmAzuredevops);
   registry.register(pluginScmGithub);
   registry.register(pluginTrackerGithub);
   registry.register(pluginTrackerGithubApi);
+  registry.register(pluginTrackerJira);
   registry.register(pluginTrackerLinear);
 
   const sessionManager = createSessionManager({ config, registry });
