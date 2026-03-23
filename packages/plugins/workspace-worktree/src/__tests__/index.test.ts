@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { ProjectConfig, WorkspaceCreateConfig, WorkspaceInfo } from "@composio/ao-core";
 
 // ---------------------------------------------------------------------------
-// Mocks — must be declared before any import that uses the mocked modules
+// Mocks — must be declared before any import that uses the mocked modules.
+// The factory functions are re-evaluated after each vi.resetModules() call,
+// so mock instances are fresh for every test.
 // ---------------------------------------------------------------------------
 
 vi.mock("node:child_process", () => {
@@ -19,9 +21,9 @@ vi.mock("node:fs", () => ({
   rmSync: vi.fn(),
   mkdirSync: vi.fn(),
   readdirSync: vi.fn(),
-  accessSync: vi.fn().mockImplementation(() => {
+  accessSync: () => {
     throw new Error("not found");
-  }),
+  },
   constants: { X_OK: 1 },
 }));
 
@@ -31,38 +33,79 @@ vi.mock("node:os", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Imports (after mocks)
+// Per-test mock references — updated in beforeEach after resetModules
 // ---------------------------------------------------------------------------
 
-import * as childProcess from "node:child_process";
-import { existsSync, lstatSync, symlinkSync, rmSync, mkdirSync, readdirSync } from "node:fs";
-import { create, manifest } from "../index.js";
+let create: (
+  config?: Record<string, unknown>,
+) => ReturnType<(typeof import("../index.js"))["create"]>;
+let manifest: (typeof import("../index.js"))["manifest"];
+let mockExecFileAsync: ReturnType<typeof vi.fn>;
+let mockExistsSync: ReturnType<typeof vi.fn>;
+let mockLstatSync: ReturnType<typeof vi.fn>;
+let mockSymlinkSync: ReturnType<typeof vi.fn>;
+let mockRmSync: ReturnType<typeof vi.fn>;
+let mockMkdirSync: ReturnType<typeof vi.fn>;
+let mockReaddirSync: ReturnType<typeof vi.fn>;
+
+// Custom response queue for git commands (skips which/where from resolveGit)
+let gitResponses: Array<{ stdout: string; stderr: string } | Error>;
 
 // ---------------------------------------------------------------------------
-// Typed mock references
+// Reset module cache and re-import before each test so that the module-level
+// `resolvedGitPath` variable starts as `undefined` for every test.
 // ---------------------------------------------------------------------------
 
-const mockExecFileAsync = (childProcess.execFile as any)[
-  Symbol.for("nodejs.util.promisify.custom")
-] as ReturnType<typeof vi.fn>;
+beforeEach(async () => {
+  vi.clearAllMocks();
+  vi.resetModules();
 
-const mockExistsSync = existsSync as ReturnType<typeof vi.fn>;
-const mockLstatSync = lstatSync as ReturnType<typeof vi.fn>;
-const mockSymlinkSync = symlinkSync as ReturnType<typeof vi.fn>;
-const mockRmSync = rmSync as ReturnType<typeof vi.fn>;
-const mockMkdirSync = mkdirSync as ReturnType<typeof vi.fn>;
-const mockReaddirSync = readdirSync as ReturnType<typeof vi.fn>;
+  // Re-import mocked modules to get fresh mock instances
+  const childProcess = await import("node:child_process");
+  const fs = await import("node:fs");
+
+  mockExecFileAsync = (childProcess.execFile as any)[
+    Symbol.for("nodejs.util.promisify.custom")
+  ] as ReturnType<typeof vi.fn>;
+
+  mockExistsSync = fs.existsSync as ReturnType<typeof vi.fn>;
+  mockLstatSync = fs.lstatSync as ReturnType<typeof vi.fn>;
+  mockSymlinkSync = fs.symlinkSync as ReturnType<typeof vi.fn>;
+  mockRmSync = fs.rmSync as ReturnType<typeof vi.fn>;
+  mockMkdirSync = fs.mkdirSync as ReturnType<typeof vi.fn>;
+  mockReaddirSync = fs.readdirSync as ReturnType<typeof vi.fn>;
+
+  // Reset the custom response queue
+  gitResponses = [];
+
+  // Implementation that handles which/where from resolveGit() transparently
+  // and pops from the custom gitResponses queue for all other calls.
+  mockExecFileAsync.mockImplementation((cmd: string) => {
+    if (cmd === "which" || cmd === "where") {
+      return Promise.reject(new Error("not found"));
+    }
+    const next = gitResponses.shift();
+    if (next instanceof Error) return Promise.reject(next);
+    if (next) return Promise.resolve(next);
+    return Promise.resolve({ stdout: "\n", stderr: "" });
+  });
+
+  // Re-import the module under test so resolvedGitPath starts as undefined
+  const mod = await import("../index.js");
+  create = mod.create as any;
+  manifest = mod.manifest;
+});
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (use module-level variables that are refreshed in beforeEach)
 // ---------------------------------------------------------------------------
 
 function mockGitSuccess(stdout: string) {
-  mockExecFileAsync.mockResolvedValueOnce({ stdout: stdout + "\n", stderr: "" });
+  gitResponses.push({ stdout: stdout + "\n", stderr: "" });
 }
 
 function mockGitError(message: string) {
-  mockExecFileAsync.mockRejectedValueOnce(new Error(message));
+  gitResponses.push(new Error(message));
 }
 
 function makeProject(overrides?: Partial<ProjectConfig>): ProjectConfig {
@@ -86,15 +129,12 @@ function makeCreateConfig(overrides?: Partial<WorkspaceCreateConfig>): Workspace
   };
 }
 
-// ---------------------------------------------------------------------------
-// Reset mocks before each test
-// ---------------------------------------------------------------------------
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  // Default: any unqueued git call (e.g. worktree prune best-effort) returns empty stdout
-  mockExecFileAsync.mockResolvedValue({ stdout: "\n", stderr: "" });
-});
+/** Return only the git command calls (excluding which/where from resolveGit) */
+function gitCalls() {
+  return mockExecFileAsync.mock.calls.filter(
+    ([cmd]: [string]) => cmd !== "which" && cmd !== "where",
+  );
+}
 
 // ===========================================================================
 // Tests
@@ -113,8 +153,8 @@ describe("create() factory", () => {
   it("uses ~/.worktrees as default base dir", async () => {
     const ws = create();
 
-    // Mock: fetch, worktree add
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add
 
     const info = await ws.create(makeCreateConfig());
@@ -126,6 +166,7 @@ describe("create() factory", () => {
     const ws = create({ worktreeDir: "/custom/worktrees" });
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add
 
     const info = await ws.create(makeCreateConfig());
@@ -137,6 +178,7 @@ describe("create() factory", () => {
     const ws = create({ worktreeDir: "~/custom-path" });
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add
 
     const info = await ws.create(makeCreateConfig());
@@ -150,17 +192,15 @@ describe("workspace.create()", () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add
 
     await ws.create(makeCreateConfig());
 
-    // First call: git fetch origin --quiet
-    expect(mockExecFileAsync).toHaveBeenCalledWith("git", ["fetch", "origin", "--quiet"], {
-      cwd: "/repo/path",
-    });
-
-    // Second call: git worktree add -b <branch> <path> <baseRef>
-    expect(mockExecFileAsync).toHaveBeenCalledWith(
+    const calls = gitCalls();
+    expect(calls[0]).toEqual(["git", ["fetch", "origin", "--quiet"], { cwd: "/repo/path" }]);
+    expect(calls[1]).toEqual(["git", ["worktree", "prune", "--expire=now"], { cwd: "/repo/path" }]);
+    expect(calls[2]).toEqual([
       "git",
       [
         "worktree",
@@ -171,13 +211,14 @@ describe("workspace.create()", () => {
         "origin/main",
       ],
       { cwd: "/repo/path" },
-    );
+    ]);
   });
 
   it("creates the project worktree directory", async () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add
 
     await ws.create(makeCreateConfig());
@@ -191,6 +232,7 @@ describe("workspace.create()", () => {
     const ws = create();
 
     mockGitError("Could not resolve host"); // fetch fails
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add succeeds
 
     const info = await ws.create(makeCreateConfig());
@@ -202,23 +244,27 @@ describe("workspace.create()", () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitError("already exists"); // worktree add -b fails
     mockGitSuccess(""); // worktree add (without -b)
     mockGitSuccess(""); // checkout
 
     const info = await ws.create(makeCreateConfig());
 
-    // Third call: worktree add without -b
-    expect(mockExecFileAsync).toHaveBeenCalledWith(
+    const calls = gitCalls();
+    // worktree add without -b (4th git call, index 3)
+    expect(calls[3]).toEqual([
       "git",
       ["worktree", "add", "/mock-home/.worktrees/myproject/session-1", "origin/main"],
       { cwd: "/repo/path" },
-    );
+    ]);
 
-    // Fourth call: checkout
-    expect(mockExecFileAsync).toHaveBeenCalledWith("git", ["checkout", "feat/TEST-1"], {
-      cwd: "/mock-home/.worktrees/myproject/session-1",
-    });
+    // checkout (5th git call, index 4)
+    expect(calls[4]).toEqual([
+      "git",
+      ["checkout", "feat/TEST-1"],
+      { cwd: "/mock-home/.worktrees/myproject/session-1" },
+    ]);
 
     expect(info.branch).toBe("feat/TEST-1");
   });
@@ -227,6 +273,7 @@ describe("workspace.create()", () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitError("already exists"); // worktree add -b fails
     mockGitSuccess(""); // worktree add (without -b)
     mockGitError("checkout failed: conflict"); // checkout fails
@@ -237,17 +284,22 @@ describe("workspace.create()", () => {
     );
 
     // Verify cleanup was attempted
-    expect(mockExecFileAsync).toHaveBeenCalledWith(
+    const calls = gitCalls();
+    const removeCall = calls.find(
+      ([, args]: [string, string[]]) => args[0] === "worktree" && args[1] === "remove",
+    );
+    expect(removeCall).toEqual([
       "git",
       ["worktree", "remove", "--force", "/mock-home/.worktrees/myproject/session-1"],
       { cwd: "/repo/path" },
-    );
+    ]);
   });
 
   it("still throws on checkout failure even if cleanup fails", async () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitError("already exists"); // worktree add -b fails
     mockGitSuccess(""); // worktree add (without -b)
     mockGitError("checkout failed"); // checkout fails
@@ -262,6 +314,7 @@ describe("workspace.create()", () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitError("fatal: invalid reference"); // worktree add fails with other error
 
     await expect(ws.create(makeCreateConfig())).rejects.toThrow(
@@ -305,6 +358,7 @@ describe("workspace.create()", () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add
 
     const info = await ws.create(makeCreateConfig());
@@ -321,6 +375,7 @@ describe("workspace.create()", () => {
     const ws = create();
 
     mockGitSuccess(""); // fetch
+    mockGitSuccess(""); // worktree prune
     mockGitSuccess(""); // worktree add
 
     await ws.create(
@@ -330,9 +385,12 @@ describe("workspace.create()", () => {
     );
 
     // fetch should use expanded path
-    expect(mockExecFileAsync).toHaveBeenCalledWith("git", ["fetch", "origin", "--quiet"], {
-      cwd: "/mock-home/my-repo",
-    });
+    const calls = gitCalls();
+    expect(calls[0]).toEqual([
+      "git",
+      ["fetch", "origin", "--quiet"],
+      { cwd: "/mock-home/my-repo" },
+    ]);
   });
 });
 
@@ -347,19 +405,20 @@ describe("workspace.destroy()", () => {
 
     await ws.destroy("/mock-home/.worktrees/myproject/session-1");
 
-    // First call: rev-parse
-    expect(mockExecFileAsync).toHaveBeenCalledWith(
+    const calls = gitCalls();
+    // First git call: rev-parse
+    expect(calls[0]).toEqual([
       "git",
       ["rev-parse", "--path-format=absolute", "--git-common-dir"],
       { cwd: "/mock-home/.worktrees/myproject/session-1" },
-    );
+    ]);
 
-    // Second call: worktree remove
-    expect(mockExecFileAsync).toHaveBeenCalledWith(
+    // Second git call: worktree remove
+    expect(calls[1]).toEqual([
       "git",
       ["worktree", "remove", "--force", "/mock-home/.worktrees/myproject/session-1"],
       { cwd: "/repo/path" },
-    );
+    ]);
   });
 
   it("falls back to rmSync when git commands fail", async () => {
@@ -681,18 +740,24 @@ describe("workspace.postCreate()", () => {
       postCreate: ["pnpm install", "pnpm build"],
     });
 
-    // Two sh -c calls
-    mockExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "" });
-    mockExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "" });
+    // Two sh -c calls — these go through execFileAsync directly (not via git())
+    // so they also go through our mockImplementation and consume from gitResponses.
+    mockGitSuccess(""); // pnpm install result
+    mockGitSuccess(""); // pnpm build result
 
     await ws.postCreate!(workspaceInfo, project);
 
-    expect(mockExecFileAsync).toHaveBeenCalledWith("sh", ["-c", "pnpm install"], {
-      cwd: "/mock-home/.worktrees/myproject/session-1",
-    });
-    expect(mockExecFileAsync).toHaveBeenCalledWith("sh", ["-c", "pnpm build"], {
-      cwd: "/mock-home/.worktrees/myproject/session-1",
-    });
+    const calls = gitCalls();
+    expect(calls).toContainEqual([
+      "sh",
+      ["-c", "pnpm install"],
+      { cwd: "/mock-home/.worktrees/myproject/session-1" },
+    ]);
+    expect(calls).toContainEqual([
+      "sh",
+      ["-c", "pnpm build"],
+      { cwd: "/mock-home/.worktrees/myproject/session-1" },
+    ]);
   });
 
   it("does nothing when no symlinks or postCreate configured", async () => {
@@ -702,7 +767,7 @@ describe("workspace.postCreate()", () => {
     await ws.postCreate!(workspaceInfo, project);
 
     expect(mockSymlinkSync).not.toHaveBeenCalled();
-    expect(mockExecFileAsync).not.toHaveBeenCalled();
+    expect(gitCalls()).toHaveLength(0);
   });
 
   it("handles both symlinks and postCreate commands together", async () => {
@@ -719,14 +784,17 @@ describe("workspace.postCreate()", () => {
     });
 
     // postCreate command
-    mockExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "" });
+    mockGitSuccess(""); // pnpm install result
 
     await ws.postCreate!(workspaceInfo, project);
 
     expect(mockSymlinkSync).toHaveBeenCalledTimes(1);
-    expect(mockExecFileAsync).toHaveBeenCalledWith("sh", ["-c", "pnpm install"], {
-      cwd: "/mock-home/.worktrees/myproject/session-1",
-    });
+    const calls = gitCalls();
+    expect(calls).toContainEqual([
+      "sh",
+      ["-c", "pnpm install"],
+      { cwd: "/mock-home/.worktrees/myproject/session-1" },
+    ]);
   });
 
   it("expands tilde in project path for symlink sources", async () => {
