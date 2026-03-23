@@ -7,12 +7,13 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/issues — List open issues from all configured trackers.
- * Query params: ?state=open|closed|all&label=agent:backlog&project=Saas-code
+ * Query params: ?state=open|closed|all&label=agent:backlog&project=Saas-code&assignee=username
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const state = (searchParams.get("state") ?? "open") as "open" | "closed" | "all";
   const label = searchParams.get("label") ?? undefined;
+  const assignee = searchParams.get("assignee") ?? undefined;
   const projectFilter = searchParams.get("project") ?? undefined;
 
   try {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
 
       try {
         const issues = await tracker.listIssues(
-          { state, labels: label ? [label] : undefined, limit: 50 },
+          { state, labels: label ? [label] : undefined, assignee, limit: 50 },
           project,
         );
         for (const issue of issues) {
