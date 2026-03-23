@@ -34,7 +34,6 @@
     "@composio/ao-plugin-scm-github": "workspace:*",
     "@composio/ao-plugin-tracker-github": "workspace:*",
     "@composio/ao-plugin-tracker-github-api": "workspace:*",
-    "@composio/ao-plugin-tracker-jira": "workspace:*",
     "@composio/ao-plugin-tracker-linear": "workspace:*",
     "@composio/ao-plugin-workspace-worktree": "workspace:*",
     "@xterm/addon-fit": "^0.11.0",
