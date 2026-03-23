@@ -19,10 +19,15 @@ vi.mock("node:fs", () => ({
   rmSync: vi.fn(),
   mkdirSync: vi.fn(),
   readdirSync: vi.fn(),
+  accessSync: vi.fn().mockImplementation(() => {
+    throw new Error("not found");
+  }),
+  constants: { X_OK: 1 },
 }));
 
 vi.mock("node:os", () => ({
   homedir: () => "/mock-home",
+  platform: () => "linux",
 }));
 
 // ---------------------------------------------------------------------------
@@ -87,6 +92,8 @@ function makeCreateConfig(overrides?: Partial<WorkspaceCreateConfig>): Workspace
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: any unqueued git call (e.g. worktree prune best-effort) returns empty stdout
+  mockExecFileAsync.mockResolvedValue({ stdout: "\n", stderr: "" });
 });
 
 // ===========================================================================

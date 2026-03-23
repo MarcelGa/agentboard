@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
-import type { RuntimeHandle } from "@composio/ao-core";
+import type * as AoCore from "@composio/ao-core";
 
 // Mock node:child_process with custom promisify support
 vi.mock("node:child_process", () => {
@@ -25,7 +25,7 @@ vi.mock("node:fs", () => ({
 
 // Mock @composio/ao-core to return a predictable tmux path
 vi.mock("@composio/ao-core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@composio/ao-core")>();
+  const actual = await importOriginal<typeof AoCore>();
   return { ...actual, resolveTmux: () => "tmux" };
 });
 
@@ -46,7 +46,7 @@ function mockTmuxError(message: string) {
 }
 
 /** Create a RuntimeHandle for testing. */
-function makeHandle(id: string, createdAt?: number): RuntimeHandle {
+function makeHandle(id: string, createdAt?: number): AoCore.RuntimeHandle {
   return {
     id,
     runtimeName: "tmux",
@@ -514,7 +514,7 @@ describe("runtime.getMetrics()", () => {
 
   it("handles missing createdAt by using Date.now()", async () => {
     const runtime = create();
-    const handle: RuntimeHandle = {
+    const handle: AoCore.RuntimeHandle = {
       id: "metrics-no-created",
       runtimeName: "tmux",
       data: {},

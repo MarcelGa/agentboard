@@ -16,11 +16,16 @@ vi.mock("node:fs", () => ({
   rmSync: vi.fn(),
   mkdirSync: vi.fn(),
   readdirSync: vi.fn(),
+  accessSync: vi.fn().mockImplementation(() => {
+    throw new Error("not found");
+  }),
+  constants: { X_OK: 1 },
 }));
 
 // Mock node:os
 vi.mock("node:os", () => ({
   homedir: () => "/mock-home",
+  platform: () => "linux",
 }));
 
 // Get reference to the promisify-custom mock — this is what the plugin actually calls
@@ -55,6 +60,8 @@ import clonePlugin, { manifest, create } from "../index.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: any unqueued git call returns empty stdout
+  mockExecFileAsync.mockResolvedValue({ stdout: "\n", stderr: "" });
 });
 
 // ---------------------------------------------------------------------------
