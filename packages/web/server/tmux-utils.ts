@@ -30,9 +30,7 @@ export function validateSessionId(sessionId: string): boolean {
  *
  * @param execFn - Injectable execFileSync for testing. Defaults to child_process.execFileSync.
  */
-export function findTmux(
-  execFn: typeof execFileSync = execFileSync,
-): string {
+export function findTmux(execFn: typeof execFileSync = execFileSync): string {
   const candidates = [
     "/opt/homebrew/bin/tmux", // macOS ARM (Homebrew)
     "/usr/local/bin/tmux", // macOS Intel (Homebrew)
@@ -88,8 +86,8 @@ export function resolveTmuxSession(
       encoding: "utf8",
     }) as string;
     const sessions = output.split("\n").filter(Boolean);
-    const match = sessions.find((s) =>
-      HASH_PREFIX_PATTERN.test(s) && s.substring(13) === sessionId,
+    const match = sessions.find(
+      (s) => HASH_PREFIX_PATTERN.test(s) && s.substring(13) === sessionId,
     );
     if (match) {
       return match;

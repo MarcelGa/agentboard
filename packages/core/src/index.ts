@@ -33,6 +33,7 @@ export {
 
 // tmux — command wrappers
 export {
+  resolveTmux,
   isTmuxAvailable,
   listSessions as listTmuxSessions,
   hasSession as hasTmuxSession,
@@ -77,7 +78,6 @@ export type {
 // Orchestrator prompt — generates orchestrator context for `ao start`
 export { generateOrchestratorPrompt } from "./orchestrator-prompt.js";
 export type { OrchestratorPromptConfig } from "./orchestrator-prompt.js";
-
 
 // Global pause constants and utilities
 export {

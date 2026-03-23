@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveTmux } from "@composio/ao-core";
 import type {
   PluginModule,
   Runtime,
@@ -35,7 +36,7 @@ function assertValidSessionId(id: string): void {
 
 /** Run a tmux command and return stdout */
 async function tmux(...args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync("tmux", args, {
+  const { stdout } = await execFileAsync(resolveTmux(), args, {
     timeout: TMUX_COMMAND_TIMEOUT_MS,
   });
   return stdout.trimEnd();
