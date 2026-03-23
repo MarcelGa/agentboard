@@ -23,6 +23,12 @@ vi.mock("node:fs", () => ({
   unlinkSync: vi.fn(),
 }));
 
+// Mock @composio/ao-core to return a predictable tmux path
+vi.mock("@composio/ao-core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@composio/ao-core")>();
+  return { ...actual, resolveTmux: () => "tmux" };
+});
+
 // Get reference to the promisify-custom mock — this is what the plugin actually calls
 const mockExecFileCustom = (childProcess.execFile as any)[
   Symbol.for("nodejs.util.promisify.custom")
