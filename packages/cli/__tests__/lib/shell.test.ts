@@ -6,12 +6,17 @@ const { mockExecFile } = vi.hoisted(() => ({
 
 vi.mock("node:child_process", () => ({
   execFile: mockExecFile,
+  // Make execFileSync throw so that resolveTmux() (which calls
+  // execFileSync("which", ["tmux"])) cannot discover a real tmux path and
+  // falls back to the bare "tmux" string on every platform.
+  execFileSync: () => {
+    throw new Error("not found");
+  },
 }));
 
 // Mock node:fs so that accessSync always throws — this prevents resolveGit()
-// from caching a real on-disk path (e.g. C:\Program Files\Git\bin\git.exe on
-// Windows) and ensures it falls back to the bare "git" string on every
-// platform, making the tests platform-independent.
+// and resolveTmux() from caching a real on-disk path and ensures both fall
+// back to the bare "git"/"tmux" strings on every platform.
 vi.mock("node:fs", () => ({
   accessSync: () => {
     throw new Error("not found");
