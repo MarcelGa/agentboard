@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { ProjectConfig, WorkspaceCreateConfig, WorkspaceInfo } from "@composio/ao-core";
+import type * as IndexModule from "../index.js";
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before any import that uses the mocked modules.
@@ -36,10 +37,8 @@ vi.mock("node:os", () => ({
 // Per-test mock references — updated in beforeEach after resetModules
 // ---------------------------------------------------------------------------
 
-let create: (
-  config?: Record<string, unknown>,
-) => ReturnType<(typeof import("../index.js"))["create"]>;
-let manifest: (typeof import("../index.js"))["manifest"];
+let create: (config?: Record<string, unknown>) => ReturnType<(typeof IndexModule)["create"]>;
+let manifest: (typeof IndexModule)["manifest"];
 let mockExecFileAsync: ReturnType<typeof vi.fn>;
 let mockExistsSync: ReturnType<typeof vi.fn>;
 let mockLstatSync: ReturnType<typeof vi.fn>;
@@ -131,9 +130,7 @@ function makeCreateConfig(overrides?: Partial<WorkspaceCreateConfig>): Workspace
 
 /** Return only the git command calls (excluding which/where from resolveGit) */
 function gitCalls() {
-  return mockExecFileAsync.mock.calls.filter(
-    ([cmd]: [string]) => cmd !== "which" && cmd !== "where",
-  );
+  return mockExecFileAsync.mock.calls.filter((call) => call[0] !== "which" && call[0] !== "where");
 }
 
 // ===========================================================================
@@ -285,9 +282,7 @@ describe("workspace.create()", () => {
 
     // Verify cleanup was attempted
     const calls = gitCalls();
-    const removeCall = calls.find(
-      ([, args]: [string, string[]]) => args[0] === "worktree" && args[1] === "remove",
-    );
+    const removeCall = calls.find((call) => call[1][0] === "worktree" && call[1][1] === "remove");
     expect(removeCall).toEqual([
       "git",
       ["worktree", "remove", "--force", "/mock-home/.worktrees/myproject/session-1"],

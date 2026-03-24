@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ProjectConfig } from "@composio/ao-core";
+import type * as IndexModule from "../index.js";
 
 // ---------------------------------------------------------------------------
 // Mocks — factories are re-evaluated after each vi.resetModules() call
@@ -31,9 +32,9 @@ vi.mock("node:os", () => ({
 // Per-test references — updated in beforeEach after resetModules
 // ---------------------------------------------------------------------------
 
-let clonePlugin: (typeof import("../index.js"))["default"];
-let manifest: (typeof import("../index.js"))["manifest"];
-let create: (typeof import("../index.js"))["create"];
+let clonePlugin: (typeof IndexModule)["default"];
+let manifest: (typeof IndexModule)["manifest"];
+let create: (typeof IndexModule)["create"];
 let mockExecFileAsync: ReturnType<typeof vi.fn>;
 let mockExistsSync: ReturnType<typeof vi.fn>;
 let mockRmSync: ReturnType<typeof vi.fn>;
@@ -111,9 +112,7 @@ function makeProject(overrides?: Partial<ProjectConfig>): ProjectConfig {
 
 /** Return only the git command calls (excluding which/where from resolveGit) */
 function gitCalls() {
-  return mockExecFileAsync.mock.calls.filter(
-    ([cmd]: [string]) => cmd !== "which" && cmd !== "where",
-  );
+  return mockExecFileAsync.mock.calls.filter((call) => call[0] !== "which" && call[0] !== "where");
 }
 
 // ---------------------------------------------------------------------------
