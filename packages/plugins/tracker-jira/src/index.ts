@@ -3,10 +3,14 @@
  *
  * Uses the Jira REST API v3 via Node's built-in fetch.
  *
- * Required environment variables:
+ * Required environment variables (global or per-project via envFile):
  *   JIRA_BASE_URL  — e.g. https://mycompany.atlassian.net
  *   JIRA_EMAIL     — Jira account email
  *   JIRA_API_TOKEN — API token (https://id.atlassian.com/manage-profile/security/api-tokens)
+ *
+ * Variables are resolved per-project: if a project defines `envFile`, values in
+ * that file take precedence over the global .env.local for that project only.
+ * This allows different Jira organisations / PATs across projects.
  *
  * Config (in agent-orchestrator.yaml):
  *   projects:
@@ -14,16 +18,18 @@
  *       tracker:
  *         plugin: jira
  *         projectKey: PROJ   # Jira project key
+ *       envFile: .env.agentboard   # optional per-project secrets override
  */
 
-import type {
-  PluginModule,
-  Tracker,
-  Issue,
-  IssueFilters,
-  IssueUpdate,
-  CreateIssueInput,
-  ProjectConfig,
+import {
+  resolveEnv,
+  type PluginModule,
+  type Tracker,
+  type Issue,
+  type IssueFilters,
+  type IssueUpdate,
+  type CreateIssueInput,
+  type ProjectConfig,
 } from "@agentboard/ao-core";
 
 // =============================================================================
@@ -36,10 +42,10 @@ interface JiraConfig {
   apiToken: string;
 }
 
-function getJiraConfig(): JiraConfig {
-  const baseUrl = process.env["JIRA_BASE_URL"];
-  const email = process.env["JIRA_EMAIL"];
-  const apiToken = process.env["JIRA_API_TOKEN"];
+function getJiraConfig(project: ProjectConfig): JiraConfig {
+  const baseUrl = resolveEnv("JIRA_BASE_URL", project);
+  const email = resolveEnv("JIRA_EMAIL", project);
+  const apiToken = resolveEnv("JIRA_API_TOKEN", project);
 
   if (!baseUrl) throw new Error("JIRA_BASE_URL environment variable is required");
   if (!email) throw new Error("JIRA_EMAIL environment variable is required");
@@ -56,8 +62,9 @@ function authHeader(config: JiraConfig): string {
 async function jiraFetch(
   path: string,
   options: { method?: string; body?: unknown } = {},
+  project: ProjectConfig,
 ): Promise<unknown> {
-  const config = getJiraConfig();
+  const config = getJiraConfig(project);
   const url = `${config.baseUrl}/rest/api/3${path}`;
 
   const headers: Record<string, string> = {
@@ -191,25 +198,28 @@ function createJiraTracker(): Tracker {
   return {
     name: "jira",
 
-    async getIssue(identifier: string, _project: ProjectConfig): Promise<Issue> {
-      const config = getJiraConfig();
+    async getIssue(identifier: string, project: ProjectConfig): Promise<Issue> {
+      const config = getJiraConfig(project);
       const data = (await jiraFetch(
         `/issue/${encodeURIComponent(identifier)}?fields=summary,description,status,labels,assignee,priority,issuetype`,
+        {},
+        project,
       )) as JiraIssue;
       return jiraToIssue(data, config.baseUrl);
     },
 
-    async isCompleted(identifier: string, _project: ProjectConfig): Promise<boolean> {
+    async isCompleted(identifier: string, project: ProjectConfig): Promise<boolean> {
       const data = (await jiraFetch(
         `/issue/${encodeURIComponent(identifier)}?fields=status`,
+        {},
+        project,
       )) as JiraIssue;
       return data.fields.status.statusCategory.key.toLowerCase() === "done";
     },
 
-    // Fix: read only JIRA_BASE_URL instead of calling getJiraConfig() (which also
-    // validates JIRA_EMAIL and JIRA_API_TOKEN — unnecessary for a URL-only helper).
-    issueUrl(identifier: string, _project: ProjectConfig): string {
-      const baseUrl = process.env["JIRA_BASE_URL"];
+    // Read only JIRA_BASE_URL — avoids requiring email + token for a URL-only helper.
+    issueUrl(identifier: string, project: ProjectConfig): string {
+      const baseUrl = resolveEnv("JIRA_BASE_URL", project);
       if (!baseUrl) throw new Error("JIRA_BASE_URL environment variable is required");
       return `${baseUrl.replace(/\/+$/, "")}/browse/${identifier}`;
     },
@@ -254,7 +264,7 @@ function createJiraTracker(): Tracker {
     },
 
     async listIssues(filters: IssueFilters, project: ProjectConfig): Promise<Issue[]> {
-      const config = getJiraConfig();
+      const config = getJiraConfig(project);
       const projectKey = getProjectKey(project);
       const safeProjectKey = projectKey.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       const jqlParts: string[] = [`project = "${safeProjectKey}"`];
@@ -286,6 +296,8 @@ function createJiraTracker(): Tracker {
 
       const data = (await jiraFetch(
         `/search/jql?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=summary,description,status,labels,assignee,priority,issuetype`,
+        {},
+        project,
       )) as { issues: JiraIssue[] };
 
       return data.issues.map((issue) => jiraToIssue(issue, config.baseUrl));
@@ -294,14 +306,18 @@ function createJiraTracker(): Tracker {
     async updateIssue(
       identifier: string,
       update: IssueUpdate,
-      _project: ProjectConfig,
+      project: ProjectConfig,
     ): Promise<void> {
       // Handle state change via transition
       if (update.state) {
         // Get available transitions for this issue
         const transitionsData = (await jiraFetch(
           `/issue/${encodeURIComponent(identifier)}/transitions`,
-        )) as { transitions: Array<{ id: string; name: string; to: { statusCategory: { key: string } } }> };
+          {},
+          project,
+        )) as {
+          transitions: Array<{ id: string; name: string; to: { statusCategory: { key: string } } }>;
+        };
 
         let targetCategory: string;
         if (update.state === "closed") {
@@ -317,55 +333,65 @@ function createJiraTracker(): Tracker {
         );
 
         if (transition) {
-          await jiraFetch(`/issue/${encodeURIComponent(identifier)}/transitions`, {
-            method: "POST",
-            body: { transition: { id: transition.id } },
-          });
+          await jiraFetch(
+            `/issue/${encodeURIComponent(identifier)}/transitions`,
+            { method: "POST", body: { transition: { id: transition.id } } },
+            project,
+          );
         } else {
           throw new Error(
             `No Jira transition found for issue ${identifier} to status category "${targetCategory}". ` +
-            `Available transitions: ${transitionsData.transitions.map((t) => t.name).join(", ") || "none"}`,
+              `Available transitions: ${transitionsData.transitions.map((t) => t.name).join(", ") || "none"}`,
           );
         }
       }
 
       // Handle label additions via Jira's update (not fields) API
       if (update.labels && update.labels.length > 0) {
-        await jiraFetch(`/issue/${encodeURIComponent(identifier)}`, {
-          method: "PUT",
-          body: {
-            update: {
-              labels: update.labels.map((l: string) => ({ add: l })),
+        await jiraFetch(
+          `/issue/${encodeURIComponent(identifier)}`,
+          {
+            method: "PUT",
+            body: {
+              update: {
+                labels: update.labels.map((l: string) => ({ add: l })),
+              },
             },
           },
-        });
+          project,
+        );
       }
 
       // Handle assignee change
       if (update.assignee) {
-        await jiraFetch(`/issue/${encodeURIComponent(identifier)}`, {
-          method: "PUT",
-          body: { fields: { assignee: { accountId: update.assignee } } },
-        });
+        await jiraFetch(
+          `/issue/${encodeURIComponent(identifier)}`,
+          { method: "PUT", body: { fields: { assignee: { accountId: update.assignee } } } },
+          project,
+        );
       }
 
       // Handle comment
       if (update.comment) {
-        await jiraFetch(`/issue/${encodeURIComponent(identifier)}/comment`, {
-          method: "POST",
-          body: {
+        await jiraFetch(
+          `/issue/${encodeURIComponent(identifier)}/comment`,
+          {
+            method: "POST",
             body: {
-              type: "doc",
-              version: 1,
-              content: [
-                {
-                  type: "paragraph",
-                  content: [{ type: "text", text: update.comment }],
-                },
-              ],
+              body: {
+                type: "doc",
+                version: 1,
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: update.comment }],
+                  },
+                ],
+              },
             },
           },
-        });
+          project,
+        );
       }
     },
 
@@ -396,10 +422,9 @@ function createJiraTracker(): Tracker {
         fields["assignee"] = { accountId: input.assignee };
       }
 
-      const data = (await jiraFetch("/issue", {
-        method: "POST",
-        body: { fields },
-      })) as { key: string };
+      const data = (await jiraFetch("/issue", { method: "POST", body: { fields } }, project)) as {
+        key: string;
+      };
 
       return this.getIssue(data.key, project);
     },

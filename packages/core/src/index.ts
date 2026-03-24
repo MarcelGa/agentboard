@@ -96,6 +96,7 @@ export {
   normalizeRetryConfig,
   readLastJsonlEntry,
   resolveProjectIdForSessionId,
+  resolveEnv,
 } from "./utils.js";
 export {
   getWebhookHeader,

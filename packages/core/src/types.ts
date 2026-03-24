@@ -1013,6 +1013,32 @@ export interface ProjectConfig {
     /** Require human approval before executing decomposed plans (default: true) */
     requireApproval: boolean;
   };
+
+  /**
+   * Path to a project-specific .env file (relative to the server's working
+   * directory — where .env.local lives — or absolute / ~ prefixed).
+   * Variables defined here override the global .env.local for this project only.
+   * Useful when multiple projects use the same tracker plugin (e.g. Jira) but
+   * with different organisations or credentials.
+   *
+   * Relative paths are resolved against process.cwd() of the running server
+   * (i.e. the same directory as .env.local).
+   *
+   * Example in agent-orchestrator.yaml:
+   *   projects:
+   *     my-app:
+   *       path: ~/my-app
+   *       envFile: .env.myapp.local   # resolves relative to process.cwd()
+   */
+  envFile?: string;
+
+  /**
+   * Resolved environment variable overrides for this project.
+   * Populated at config-load time by merging the global .env.local baseline
+   * with the project-specific envFile. Never set this manually in YAML.
+   * @internal
+   */
+  envOverrides?: Record<string, string>;
 }
 
 export interface TrackerColumnConfig {

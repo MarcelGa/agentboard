@@ -11,7 +11,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
-import { resolve, join, basename } from "node:path";
+import { resolve, join, basename, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
@@ -176,6 +176,7 @@ const ProjectConfigSchema = z.object({
     .optional(),
   opencodeIssueSessionStrategy: z.enum(["reuse", "delete", "ignore"]).optional(),
   decomposer: DecomposerConfigSchema.optional(),
+  envFile: z.string().optional(),
 });
 
 const DefaultPluginsSchema = z.object({
@@ -221,6 +222,93 @@ function expandPaths(config: OrchestratorConfig): OrchestratorConfig {
   }
 
   return config;
+}
+
+/**
+ * Parse a .env file into a key→value map.
+ *
+ * Supports:
+ *   - KEY=value
+ *   - KEY="quoted value"
+ *   - KEY='single quoted'
+ *   - # comments and blank lines
+ *   - export KEY=value
+ */
+function parseEnvFile(content: string): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trim();
+
+    // Skip blank lines and comments
+    if (!line || line.startsWith("#")) continue;
+
+    // Strip optional "export " prefix
+    const stripped = line.startsWith("export ") ? line.slice(7).trim() : line;
+
+    const eqIndex = stripped.indexOf("=");
+    if (eqIndex === -1) continue;
+
+    const key = stripped.slice(0, eqIndex).trim();
+    if (!key) continue;
+
+    let value = stripped.slice(eqIndex + 1);
+
+    // Strip inline comment (only when value is not quoted)
+    // e.g. KEY=value  # comment
+    const firstChar = value[0];
+    if (firstChar !== '"' && firstChar !== "'") {
+      const commentIdx = value.indexOf(" #");
+      if (commentIdx !== -1) {
+        value = value.slice(0, commentIdx);
+      }
+      result[key] = value.trim();
+    } else {
+      // Remove surrounding quotes (single or double)
+      const closeQuote = value.lastIndexOf(firstChar);
+      if (closeQuote > 0) {
+        value = value.slice(1, closeQuote);
+      } else {
+        value = value.slice(1);
+      }
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Resolve the envOverrides for a project.
+ *
+ * The global .env.local (loaded automatically by Next.js into process.env) is
+ * the baseline — all its values are already in process.env, so we only need
+ * to layer the project-specific envFile on top.
+ *
+ * Returns a map that contains only the variables that differ from process.env,
+ * i.e. those defined in the project's envFile.  Tracker plugins (and any other
+ * plugin) should use resolveEnv(key, project) which checks envOverrides first.
+ */
+function resolveEnvOverrides(
+  project: OrchestratorConfig["projects"][string],
+): Record<string, string> {
+  if (!project.envFile) return {};
+
+  // Expand ~ then resolve: absolute/~-paths are used as-is,
+  // relative paths are resolved relative to process.cwd() — the working
+  // directory of the running server, which is where .env.local lives.
+  const expanded = expandHome(project.envFile);
+  const envFilePath = isAbsolute(expanded) ? expanded : resolve(process.cwd(), expanded);
+
+  if (!existsSync(envFilePath)) {
+    // Non-fatal: warn but don't crash — the file may be machine-specific
+    // eslint-disable-next-line no-console
+    console.warn(`[config] envFile not found for project "${project.name}": ${envFilePath}`);
+    return {};
+  }
+
+  const content = readFileSync(envFilePath, "utf-8");
+  return parseEnvFile(content);
 }
 
 /** Apply defaults to project configs */
@@ -481,6 +569,13 @@ export function loadConfig(configPath?: string): OrchestratorConfig {
   // Set the config path in the config object for hash generation
   config.configPath = path;
 
+  // Resolve per-project envFile overrides.
+  // Relative envFile paths are resolved against process.cwd() — the working
+  // directory of the running server, which is where .env.local lives.
+  for (const project of Object.values(config.projects)) {
+    project.envOverrides = resolveEnvOverrides(project);
+  }
+
   return config;
 }
 
@@ -501,6 +596,13 @@ export function loadConfigWithPath(configPath?: string): {
 
   // Set the config path in the config object for hash generation
   config.configPath = path;
+
+  // Resolve per-project envFile overrides.
+  // Relative envFile paths are resolved against process.cwd() — the working
+  // directory of the running server, which is where .env.local lives.
+  for (const project of Object.values(config.projects)) {
+    project.envOverrides = resolveEnvOverrides(project);
+  }
 
   return { config, path };
 }
