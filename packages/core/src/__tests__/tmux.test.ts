@@ -11,9 +11,28 @@ import {
   getPaneTTY,
 } from "../tmux.js";
 
-// Mock child_process.execFile
+// Mock child_process so that:
+//   - execFile is a vi.fn() that we can control per-test
+//   - execFileSync throws, preventing resolveTmux() from discovering a real
+//     tmux path via `which` and caching it as e.g. "/usr/bin/tmux" on Linux CI.
+//     This ensures all execFile calls use the bare "tmux" name as expected.
 vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
+  execFileSync: () => {
+    throw new Error("not found");
+  },
+}));
+
+// Mock node:fs so that accessSync always throws — prevents resolveTmux() from
+// probing well-known paths (/usr/bin/tmux etc.) and caching them.
+vi.mock("node:fs", () => ({
+  accessSync: () => {
+    throw new Error("not found");
+  },
+  constants: { X_OK: 1 },
+  // forward other fs functions as stubs so imports don't break
+  writeFileSync: vi.fn(),
+  unlinkSync: vi.fn(),
 }));
 
 const mockExecFile = vi.mocked(childProcess.execFile);
