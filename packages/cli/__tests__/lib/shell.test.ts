@@ -8,6 +8,27 @@ vi.mock("node:child_process", () => ({
   execFile: mockExecFile,
 }));
 
+// Mock node:fs so that accessSync always throws — this prevents resolveGit()
+// from caching a real on-disk path (e.g. C:\Program Files\Git\bin\git.exe on
+// Windows) and ensures it falls back to the bare "git" string on every
+// platform, making the tests platform-independent.
+vi.mock("node:fs", () => ({
+  accessSync: () => {
+    throw new Error("not found");
+  },
+  constants: { X_OK: 1 },
+}));
+
+// Mock node:os so that platform() returns a consistent value across platforms.
+// "linux" means resolveGit() will try "which" (not "where"), which we reject
+// in mockExecFile, and GIT_FALLBACK_PATHS will be the Linux list (none of
+// which exist when accessSync is mocked to throw), so resolvedGitPath falls
+// through to the bare "git" fallback.
+vi.mock("node:os", () => ({
+  platform: () => "linux",
+  homedir: () => "/mock-home",
+}));
+
 import {
   exec,
   execSilent,
@@ -22,23 +43,33 @@ beforeEach(() => {
   mockExecFile.mockReset();
 });
 
+type ExecFileCb = (err: Error | null, result?: { stdout: string; stderr: string }) => void;
+
+/**
+ * Set up mockExecFile to reject `which`/`where` resolution calls (so resolveGit()
+ * falls through to the "git" fallback), and respond with the given stdout/stderr
+ * for all other commands.
+ */
 function mockSuccess(stdout: string, stderr = ""): void {
   mockExecFile.mockImplementation(
-    (
-      _cmd: string,
-      _args: string[],
-      _opts: unknown,
-      cb: (err: null, result: { stdout: string; stderr: string }) => void,
-    ) => {
-      cb(null, { stdout, stderr });
+    (cmd: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+      if (cmd === "which" || cmd === "where") {
+        cb(new Error("not found"));
+      } else {
+        cb(null, { stdout, stderr });
+      }
     },
   );
 }
 
 function mockFailure(message = "command failed"): void {
   mockExecFile.mockImplementation(
-    (_cmd: string, _args: string[], _opts: unknown, cb: (err: Error) => void) => {
-      cb(new Error(message));
+    (cmd: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+      if (cmd === "which" || cmd === "where") {
+        cb(new Error("not found"));
+      } else {
+        cb(new Error(message));
+      }
     },
   );
 }
