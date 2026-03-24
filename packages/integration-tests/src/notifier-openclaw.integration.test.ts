@@ -4,8 +4,8 @@
  * Mocks network boundary only (global fetch + timers).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { NotifyAction } from "@composio/ao-core";
-import openClawPlugin from "@composio/ao-plugin-notifier-openclaw";
+import type { NotifyAction } from "@agentboard/ao-core";
+import openClawPlugin from "@agentboard/ao-plugin-notifier-openclaw";
 import { makeEvent } from "./helpers/event-factory.js";
 
 describe("notifier-openclaw integration", () => {

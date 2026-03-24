@@ -203,7 +203,7 @@ import {
   generateConfigHash,
   generateInstanceId,
   validateAndStoreOrigin,
-} from "@composio/ao-core";
+} from "@agentboard/ao-core";
 
 // Calculate paths dynamically
 const sessionsDir = getSessionsDir(configPath, projectPath);
@@ -448,7 +448,7 @@ If you encounter issues during migration:
 4. Review git worktrees: `git worktree list` (from project directory)
 5. Check logs: `journalctl -u ao-orchestrator` or tmux session output
 
-For bugs or questions, file an issue: https://github.com/composiohq/agent-orchestrator/issues
+For bugs or questions, file an issue: https://github.com/agentboard/agentboard/issues
 
 ## Summary
 

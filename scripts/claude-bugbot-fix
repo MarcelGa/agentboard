@@ -15,7 +15,7 @@ DRY_RUN=false
 
 case "$PROJECT" in
     integrator|i) 
-        REPO="ComposioHQ/integrator"
+        REPO="agentboard/integrator"
         SESSIONS_DIR="$HOME/.integrator-sessions"
         SESSION_PREFIX="integrator"
         ;;
@@ -25,7 +25,7 @@ case "$PROJECT" in
         SESSION_PREFIX="splitly"
         ;;
     agent-orchestrator|ao)
-        REPO="ComposioHQ/agent-orchestrator"
+        REPO="agentboard/agentboard"
         SESSIONS_DIR="$HOME/.ao-sessions"
         SESSION_PREFIX="ao"
         ;;

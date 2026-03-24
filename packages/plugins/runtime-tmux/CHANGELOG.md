@@ -1,8 +1,8 @@
-# @composio/ao-plugin-runtime-tmux
+# @agentboard/ao-plugin-runtime-tmux
 
 ## 0.2.0
 
 ### Patch Changes
 
 - Updated dependencies [3a650b0]
-  - @composio/ao-core@0.2.0
+  - @agentboard/ao-core@0.2.0

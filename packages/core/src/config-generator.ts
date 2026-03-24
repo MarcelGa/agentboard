@@ -16,9 +16,9 @@ import { generateSessionPrefix } from "./paths.js";
 
 /** Parsed repo URL components */
 export interface ParsedRepoUrl {
-  /** Full owner/repo string, e.g. "ComposioHQ/DevOS" */
+  /** Full owner/repo string, e.g. "agentboard/DevOS" */
   ownerRepo: string;
-  /** Owner/org, e.g. "ComposioHQ" */
+  /** Owner/org, e.g. "agentboard" */
   owner: string;
   /** Repo name, e.g. "DevOS" */
   repo: string;

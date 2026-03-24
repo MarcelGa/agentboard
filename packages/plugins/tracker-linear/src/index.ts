@@ -1,11 +1,7 @@
 /**
  * tracker-linear plugin — Linear as an issue tracker.
  *
- * Uses the Linear GraphQL API with either:
- * - LINEAR_API_KEY (direct API access)
- * - COMPOSIO_API_KEY (via Composio SDK's LINEAR_RUN_QUERY_OR_MUTATION tool)
- *
- * Auto-detects which key is available and routes accordingly.
+ * Uses the Linear GraphQL API via LINEAR_API_KEY (direct API access).
  */
 
 import { request } from "node:https";
@@ -17,8 +13,7 @@ import type {
   IssueUpdate,
   CreateIssueInput,
   ProjectConfig,
-} from "@composio/ao-core";
-import type { Composio } from "@composio/core";
+} from "@agentboard/ao-core";
 
 // ---------------------------------------------------------------------------
 // Transport abstraction
@@ -26,7 +21,6 @@ import type { Composio } from "@composio/core";
 
 /**
  * A function that sends a GraphQL query/mutation and returns the parsed data.
- * Both the direct Linear API and Composio SDK transports implement this.
  */
 type GraphQLTransport = <T>(query: string, variables?: Record<string, unknown>) => Promise<T>;
 
@@ -119,88 +113,6 @@ function createDirectTransport(): GraphQLTransport {
       req.write(body);
       req.end();
     });
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Composio SDK transport
-// ---------------------------------------------------------------------------
-
-type ComposioTools = Composio["tools"];
-
-function createComposioTransport(apiKey: string, entityId: string): GraphQLTransport {
-  // Lazy-load the Composio client — cached as a promise so the constructor
-  // is called only once, even under concurrent requests.
-  let clientPromise: Promise<ComposioTools> | undefined;
-
-  function getClient(): Promise<ComposioTools> {
-    if (!clientPromise) {
-      clientPromise = (async () => {
-        try {
-          const { Composio } = await import("@composio/core");
-          const client = new Composio({ apiKey });
-          return client.tools;
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (
-            msg.includes("Cannot find module") ||
-            msg.includes("Cannot find package") ||
-            msg.includes("ERR_MODULE_NOT_FOUND")
-          ) {
-            throw new Error(
-              "Composio SDK (@composio/core) is not installed. " +
-                "Install it with: pnpm add @composio/core",
-              { cause: err },
-            );
-          }
-          throw err;
-        }
-      })();
-    }
-    return clientPromise;
-  }
-
-  return async <T>(query: string, variables?: Record<string, unknown>): Promise<T> => {
-    const tools = await getClient();
-
-    const resultPromise = tools.execute("LINEAR_RUN_QUERY_OR_MUTATION", {
-      entityId,
-      arguments: {
-        query_or_mutation: query,
-        variables: variables ? JSON.stringify(variables) : "{}",
-      },
-    });
-
-    // Apply 30s timeout for parity with the direct transport
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeoutPromise = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => {
-        reject(new Error("Composio Linear API request timed out after 30s"));
-      }, 30_000);
-    });
-
-    // Whichever promise loses the race is left without a handler.
-    // Attach no-op .catch() to both so the loser doesn't trigger an
-    // unhandled promise rejection. This does not affect Promise.race —
-    // it still propagates the winning rejection normally.
-    resultPromise.catch(() => {});
-    timeoutPromise.catch(() => {});
-
-    try {
-      const result = await Promise.race([resultPromise, timeoutPromise]);
-
-      if (!result.successful) {
-        throw new Error(`Composio Linear API error: ${result.error ?? "unknown error"}`);
-      }
-
-      if (!result.data) {
-        throw new Error("Composio Linear API returned no data");
-      }
-
-      return result.data as T;
-    } finally {
-      clearTimeout(timer);
-    }
   };
 }
 
@@ -324,7 +236,6 @@ function createLinearTracker(query: GraphQLTransport): Tracker {
     issueLabel(url: string, _project: ProjectConfig): string {
       // Extract identifier from Linear URL
       // Examples:
-      //   https://linear.app/composio/issue/INT-1327
       //   https://linear.app/issue/INT-1327
       const match = url.match(/\/issue\/([A-Z]+-\d+)/);
       if (match) {
@@ -711,11 +622,6 @@ export const manifest = {
 };
 
 export function create(): Tracker {
-  const composioKey = process.env["COMPOSIO_API_KEY"];
-  if (composioKey) {
-    const entityId = process.env["COMPOSIO_ENTITY_ID"] ?? "default";
-    return createLinearTracker(createComposioTransport(composioKey, entityId));
-  }
   return createLinearTracker(createDirectTransport());
 }
 

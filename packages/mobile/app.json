@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.composio.ao-mobile",
+      "bundleIdentifier": "com.agentboard.ao-mobile",
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0d1117"
       },
-      "package": "com.composio.aomobile",
+      "package": "com.agentboard.aomobile",
       "usesCleartextTraffic": true
     },
     "web": {

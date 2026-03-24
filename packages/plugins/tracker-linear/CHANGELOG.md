@@ -1,8 +1,8 @@
-# @composio/ao-plugin-tracker-linear
+# @agentboard/ao-plugin-tracker-linear
 
 ## 0.2.0
 
 ### Patch Changes
 
 - Updated dependencies [3a650b0]
-  - @composio/ao-core@0.2.0
+  - @agentboard/ao-core@0.2.0

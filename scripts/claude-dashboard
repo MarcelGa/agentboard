@@ -23,7 +23,7 @@ first=true
 for s in $(tmux list-sessions -F "#{session_name}" 2>/dev/null | grep -E "^integrator-" | sort -V); do
     project="integrator"
     meta_file="$HOME/.integrator-sessions/$s"
-    repo="ComposioHQ/integrator"
+    repo="agentboard/integrator"
 
     # Get branch
     # Get pane working directory (used for both branch detection and activity)
@@ -328,7 +328,7 @@ if open_pr_nums:
         size = pr.get('additions', 0) + pr.get('deletions', 0)
         size_label = 'XL' if size > 1000 else 'L' if size > 500 else 'M' if size > 200 else 'S' if size > 50 else 'XS'
         sess = next((s for s in sessions if s['pr'].endswith(f'/{num}')), None)
-        repo = 'ComposioHQ/integrator'
+        repo = 'agentboard/integrator'
         title = pr.get('title', '')[:60]
         lines.append(f'| [#{num}](https://github.com/{repo}/pull/{num}) | {title} | +{pr.get(\"additions\",0)}/-{pr.get(\"deletions\",0)} ({size_label}) | {ci_short} | {review_short} | {unresolved} |')
     lines.append('')
@@ -698,7 +698,7 @@ cards.forEach(({session: s, pr: currentPr}) => {
   const ico = s.activity==='working' ? '<span class="pulse">⚡</span>' : s.activity==='exited' ? '💀' : '💤';
   const purpose = currentPr?.title || s.summary || s.status || s.branch;
   const isMerged = currentPr?.state === 'MERGED';
-  const repo = 'ComposioHQ/integrator';
+  const repo = 'agentboard/integrator';
 
   // Pills
   let pills = [];
@@ -867,7 +867,7 @@ Object.keys(prDetails)
       : ciR.c ? `<span class="pill ${ciR.c}">${ciR.l}</span>` : '<span class="dim">—</span>';
     const hasIssues = (pr.unresolvedThreads||0) > 0 || ciR.c === 'ci-fail' || pr.mergeable === 'CONFLICTING';
     const sess = sessions.find(s => s.pr && s.pr.includes('/pull/'+num));
-    const repo = 'ComposioHQ/integrator';
+    const repo = 'agentboard/integrator';
     const firstComment = (pr.unresolvedList||[])[0]?.url || `https://github.com/${repo}/pull/${num}/files`;
     const tr = document.createElement('tr');
     if (hasIssues) tr.className = 'has-issues';

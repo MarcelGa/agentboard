@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ProjectConfig } from "@composio/ao-core";
+import type { ProjectConfig } from "@agentboard/ao-core";
 import type * as IndexModule from "../index.js";
 
 // ---------------------------------------------------------------------------

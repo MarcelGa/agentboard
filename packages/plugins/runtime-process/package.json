@@ -1,5 +1,5 @@
 {
-  "name": "@composio/ao-plugin-runtime-process",
+  "name": "@agentboard/ao-plugin-runtime-process",
   "version": "0.2.0",
   "description": "Runtime plugin: child processes",
   "license": "MIT",
@@ -17,12 +17,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ComposioHQ/agent-orchestrator.git",
+    "url": "",
     "directory": "packages/plugins/runtime-process"
   },
-  "homepage": "https://github.com/ComposioHQ/agent-orchestrator",
+  "homepage": "",
   "bugs": {
-    "url": "https://github.com/ComposioHQ/agent-orchestrator/issues"
+    "url": ""
   },
   "engines": {
     "node": ">=20.0.0"
@@ -35,7 +35,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@composio/ao-core": "workspace:*"
+    "@agentboard/ao-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",

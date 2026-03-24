@@ -1,5 +1,5 @@
 {
-  "name": "@composio/ao",
+  "name": "@agentboard/ao",
   "version": "0.2.0",
   "description": "Orchestrate parallel AI coding agents — global CLI wrapper",
   "license": "MIT",
@@ -12,17 +12,17 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ComposioHQ/agent-orchestrator.git",
+    "url": "",
     "directory": "packages/ao"
   },
-  "homepage": "https://github.com/ComposioHQ/agent-orchestrator",
+  "homepage": "",
   "bugs": {
-    "url": "https://github.com/ComposioHQ/agent-orchestrator/issues"
+    "url": ""
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@composio/ao-cli": "workspace:*"
+    "@agentboard/ao-cli": "workspace:*"
   }
 }

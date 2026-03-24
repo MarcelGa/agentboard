@@ -48,19 +48,19 @@ describe("isRepoUrl", () => {
 
 describe("parseRepoUrl", () => {
   it("parses HTTPS GitHub URL", () => {
-    const result = parseRepoUrl("https://github.com/ComposioHQ/DevOS");
+    const result = parseRepoUrl("https://github.com/agentboard/DevOS");
     expect(result).toEqual({
-      ownerRepo: "ComposioHQ/DevOS",
-      owner: "ComposioHQ",
+      ownerRepo: "agentboard/DevOS",
+      owner: "agentboard",
       repo: "DevOS",
       host: "github.com",
-      cloneUrl: "https://github.com/ComposioHQ/DevOS.git",
+      cloneUrl: "https://github.com/agentboard/DevOS.git",
     });
   });
 
   it("parses HTTPS URL with .git suffix", () => {
-    const result = parseRepoUrl("https://github.com/ComposioHQ/DevOS.git");
-    expect(result.ownerRepo).toBe("ComposioHQ/DevOS");
+    const result = parseRepoUrl("https://github.com/agentboard/DevOS.git");
+    expect(result.ownerRepo).toBe("agentboard/DevOS");
     expect(result.repo).toBe("DevOS");
   });
 
@@ -70,13 +70,13 @@ describe("parseRepoUrl", () => {
   });
 
   it("parses SSH URL", () => {
-    const result = parseRepoUrl("git@github.com:ComposioHQ/DevOS.git");
+    const result = parseRepoUrl("git@github.com:agentboard/DevOS.git");
     expect(result).toEqual({
-      ownerRepo: "ComposioHQ/DevOS",
-      owner: "ComposioHQ",
+      ownerRepo: "agentboard/DevOS",
+      owner: "agentboard",
       repo: "DevOS",
       host: "github.com",
-      cloneUrl: "https://github.com/ComposioHQ/DevOS.git",
+      cloneUrl: "https://github.com/agentboard/DevOS.git",
     });
   });
 
@@ -246,7 +246,7 @@ describe("generateConfigFromUrl", () => {
     writeFileSync(join(tmpDir, "tsconfig.json"), "{}");
     writeFileSync(join(tmpDir, "pnpm-lock.yaml"), "");
 
-    const parsed = parseRepoUrl("https://github.com/ComposioHQ/DevOS");
+    const parsed = parseRepoUrl("https://github.com/agentboard/DevOS");
     const config = generateConfigFromUrl({ parsed, repoPath: tmpDir });
 
     // Check top-level structure
@@ -264,7 +264,7 @@ describe("generateConfigFromUrl", () => {
 
     const project = projects.devos;
     expect(project.name).toBe("DevOS");
-    expect(project.repo).toBe("ComposioHQ/DevOS");
+    expect(project.repo).toBe("agentboard/DevOS");
     expect(project.path).toBe(tmpDir);
     expect(project.defaultBranch).toBe("main");
     expect(project.scm).toEqual({ plugin: "github" });
@@ -332,7 +332,7 @@ describe("generateConfigFromUrl", () => {
   });
 
   it("preserves CamelCase for session prefix generation", () => {
-    const parsed = parseRepoUrl("https://github.com/ComposioHQ/DevOS");
+    const parsed = parseRepoUrl("https://github.com/agentboard/DevOS");
     const config = generateConfigFromUrl({ parsed, repoPath: tmpDir });
 
     const projects = config.projects as Record<string, Record<string, unknown>>;

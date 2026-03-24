@@ -67,11 +67,11 @@ const worktreesDir = `${projectBaseDir}/worktrees`;
 
 projects:
   - path: ~/repos/integrator # Required: where is the repo?
-    repo: ComposioHQ/integrator # Required: GitHub repo
+    repo: agentboard/integrator # Required: GitHub repo
     defaultBranch: next # Required: base branch
 
     # Optional overrides:
-    name: Composio Integrator # Display name (default: folder name)
+    name: Agentboard Integrator # Display name (default: folder name)
     sessionPrefix: int # Override auto-generated prefix
 ```
 
@@ -162,7 +162,7 @@ status=working
 tmuxName=a3b4c5d6e7f8-int-1
 worktree=/Users/alice/.agent-orchestrator/a3b4c5d6e7f8-integrator/worktrees/int-1
 createdAt=2026-02-17T10:30:00Z
-pr=https://github.com/ComposioHQ/integrator/pull/123
+pr=https://github.com/agentboard/integrator/pull/123
 ```
 
 **Key fields:**
@@ -252,11 +252,11 @@ f1e2d3c4b5a6-int-1    (v2 checkout)
 # ~/code/my-orchestrator/agent-orchestrator.yaml
 projects:
   - path: ~/repos/integrator
-    repo: ComposioHQ/integrator
+    repo: agentboard/integrator
     defaultBranch: next
 
   - path: ~/repos/backend
-    repo: ComposioHQ/backend
+    repo: agentboard/backend
     defaultBranch: main
     sessionPrefix: be # Override auto-generated "bac"
 ```

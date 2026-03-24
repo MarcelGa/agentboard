@@ -1,5 +1,5 @@
 {
-  "name": "@composio/ao-plugin-tracker-gitlab",
+  "name": "@agentboard/ao-plugin-tracker-gitlab",
   "version": "0.1.1",
   "description": "Tracker plugin: GitLab Issues",
   "license": "MIT",
@@ -17,12 +17,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ComposioHQ/agent-orchestrator.git",
+    "url": "",
     "directory": "packages/plugins/tracker-gitlab"
   },
-  "homepage": "https://github.com/ComposioHQ/agent-orchestrator",
+  "homepage": "",
   "bugs": {
-    "url": "https://github.com/ComposioHQ/agent-orchestrator/issues"
+    "url": ""
   },
   "engines": {
     "node": ">=20.0.0"
@@ -34,8 +34,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@composio/ao-core": "workspace:*",
-    "@composio/ao-plugin-scm-gitlab": "workspace:*"
+    "@agentboard/ao-core": "workspace:*",
+    "@agentboard/ao-plugin-scm-gitlab": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",

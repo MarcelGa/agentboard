@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
-import type * as AoCore from "@composio/ao-core";
+import type * as AoCore from "@agentboard/ao-core";
 
 // Mock node:child_process with custom promisify support
 vi.mock("node:child_process", () => {
@@ -23,8 +23,8 @@ vi.mock("node:fs", () => ({
   unlinkSync: vi.fn(),
 }));
 
-// Mock @composio/ao-core to return a predictable tmux path
-vi.mock("@composio/ao-core", async (importOriginal) => {
+// Mock @agentboard/ao-core to return a predictable tmux path
+vi.mock("@agentboard/ao-core", async (importOriginal) => {
   const actual = await importOriginal<typeof AoCore>();
   return { ...actual, resolveTmux: () => "tmux" };
 });

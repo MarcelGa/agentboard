@@ -1,4 +1,4 @@
-import type { OrchestratorConfig } from "@composio/ao-core";
+import type { OrchestratorConfig } from "@agentboard/ao-core";
 
 export function resolveProjectIdForSessionId(
   config: OrchestratorConfig,

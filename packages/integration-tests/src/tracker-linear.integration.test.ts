@@ -3,11 +3,9 @@
  *
  * Requires one of:
  *   - LINEAR_API_KEY (direct Linear API access), or
- *   - COMPOSIO_API_KEY (via Composio SDK, optionally COMPOSIO_ENTITY_ID)
  * Plus:
  *   - LINEAR_TEAM_ID (team to create test issues in)
  *
- * When using Composio, cleanup (issue deletion) still requires LINEAR_API_KEY
  * since that uses a direct GraphQL call outside the plugin.
  *
  * Skipped automatically when prerequisites are missing.
@@ -19,9 +17,9 @@
  */
 
 import { request } from "node:https";
-import type { ProjectConfig } from "@composio/ao-core";
+import type { ProjectConfig } from "@agentboard/ao-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import trackerLinear from "@composio/ao-plugin-tracker-linear";
+import trackerLinear from "@agentboard/ao-plugin-tracker-linear";
 import { pollUntil, pollUntilEqual } from "./helpers/polling.js";
 
 // ---------------------------------------------------------------------------
@@ -29,9 +27,8 @@ import { pollUntil, pollUntilEqual } from "./helpers/polling.js";
 // ---------------------------------------------------------------------------
 
 const LINEAR_API_KEY = process.env["LINEAR_API_KEY"];
-const COMPOSIO_API_KEY = process.env["COMPOSIO_API_KEY"];
 const LINEAR_TEAM_ID = process.env["LINEAR_TEAM_ID"];
-const hasCredentials = Boolean(LINEAR_API_KEY || COMPOSIO_API_KEY);
+const hasCredentials = Boolean(LINEAR_API_KEY);
 const canRun = hasCredentials && Boolean(LINEAR_TEAM_ID);
 
 // ---------------------------------------------------------------------------
@@ -171,7 +168,7 @@ describe.skipIf(!canRun)("tracker-linear (integration)", () => {
 
   // -------------------------------------------------------------------------
   // Cleanup — archive the test issue so it doesn't clutter the board.
-  // With LINEAR_API_KEY we can trash it directly. With Composio-only we
+  // With LINEAR_API_KEY we can trash it directly. Without direct Linear token we
   // close it via the plugin (can't trash through the plugin interface).
   // -------------------------------------------------------------------------
 
@@ -189,7 +186,7 @@ describe.skipIf(!canRun)("tracker-linear (integration)", () => {
           { id: issueUuid },
         );
       } else {
-        // Composio-only: best-effort close via plugin
+        // Fallback: best-effort close via plugin
         await tracker.updateIssue!(issueIdentifier, { state: "closed" }, project);
       }
     } catch {

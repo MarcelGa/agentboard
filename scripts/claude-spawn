@@ -38,7 +38,7 @@ EXAMPLES
     ~/claude-spawn integrator
 
     # Spawn integrator session for a Linear ticket
-    ~/claude-spawn integrator https://linear.app/composio/issue/INT-1020
+    ~/claude-spawn integrator https://linear.app/agentboard/issue/INT-1020
 
     # Spawn splitly session for GitHub issue #294
     ~/claude-spawn splitly 294
@@ -84,7 +84,7 @@ case "$PROJECT" in
         echo ""
         echo "Examples:"
         echo "  ~/claude-spawn integrator"
-        echo "  ~/claude-spawn integrator https://linear.app/composio/issue/INT-1020"
+        echo "  ~/claude-spawn integrator https://linear.app/agentboard/issue/INT-1020"
         echo "  ~/claude-spawn splitly 294"
         echo "  ~/claude-spawn ao AO-1"
         echo ""

@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { loadConfig } from "@composio/ao-core";
+import { loadConfig } from "@agentboard/ao-core";
 
 export interface ColumnConfig {
   label: string;
