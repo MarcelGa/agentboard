@@ -18,6 +18,7 @@ import { DynamicFavicon } from "./DynamicFavicon";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { ProjectSidebar } from "./ProjectSidebar";
 import { BacklogPanel, type BacklogState } from "./BacklogPanel";
+import { ThemeToggle } from "./ThemeToggle";
 import type { ProjectInfo } from "@/lib/project-name";
 
 interface DashboardProps {
@@ -267,7 +268,10 @@ export function Dashboard({
             </h1>
             <StatusLine stats={liveStats} />
           </div>
-          {!allProjectsView && <OrchestratorControl orchestrators={activeOrchestrators} />}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {!allProjectsView && <OrchestratorControl orchestrators={activeOrchestrators} />}
+          </div>
         </div>
 
         {globalPause && !globalPauseDismissed && (

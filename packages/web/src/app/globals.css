@@ -65,6 +65,60 @@
   --transition-regular: 0.25s;
 }
 
+/* ── Light mode overrides ────────────────────────────────────────────── */
+/* Applied when .dark is NOT present on <html> (light mode)              */
+
+:root:not(.dark) {
+  /* Base surfaces */
+  --color-bg-base: #f6f8fa;
+  --color-bg-surface: rgba(255, 255, 255, 1);
+  --color-bg-elevated: rgba(246, 248, 250, 1);
+  --color-bg-subtle: rgba(234, 238, 243, 0.8);
+
+  /* Backward-compat aliases */
+  --color-bg-primary: var(--color-bg-base);
+  --color-bg-secondary: var(--color-bg-surface);
+  --color-bg-tertiary: var(--color-bg-elevated);
+
+  /* Borders */
+  --color-border-subtle: rgba(208, 215, 222, 0.7);
+  --color-border-default: rgba(208, 215, 222, 1);
+  --color-border-strong: rgba(140, 155, 171, 1);
+
+  /* Backward-compat aliases */
+  --color-border-muted: var(--color-border-subtle);
+  --color-border-emphasis: var(--color-border-strong);
+
+  /* Text */
+  --color-text-primary: #1f2328;
+  --color-text-secondary: #57606a;
+  --color-text-tertiary: #8c959f;
+  --color-text-muted: #8c959f;
+  --color-text-inverse: #f6f8fa;
+
+  /* Interactive accent */
+  --color-accent: #0969da;
+  --color-accent-hover: #0550ae;
+  --color-accent-subtle: rgba(9, 105, 218, 0.1);
+
+  /* Status / semantic */
+  --color-status-working: #0969da;
+  --color-status-ready: #1a7f37;
+  --color-status-attention: #9a6700;
+  --color-status-idle: #8c959f;
+  --color-status-done: #d0d7de;
+  --color-status-error: #cf222e;
+
+  /* Semantic aliases */
+  --color-accent-blue: #0969da;
+  --color-accent-green: #1a7f37;
+  --color-accent-yellow: #9a6700;
+  --color-accent-orange: #bc4c00;
+  --color-accent-red: #cf222e;
+  --color-accent-violet: #8250df;
+  --color-accent-purple: #6e40c9;
+}
+
 /* ── Base styles ─────────────────────────────────────────────────────── */
 
 body {
@@ -76,6 +130,13 @@ body {
   color: var(--color-text-primary);
   min-height: 100vh;
   letter-spacing: -0.011em;
+}
+
+:root:not(.dark) body {
+  background:
+    radial-gradient(ellipse 70% 40% at 15% 0%, rgba(9, 105, 218, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 30% at 85% 90%, rgba(130, 80, 223, 0.04) 0%, transparent 60%),
+    var(--color-bg-base);
 }
 
 a {
@@ -104,6 +165,16 @@ a:hover {
 }
 ::-webkit-scrollbar-thumb:active {
   background: rgba(255, 255, 255, 0.28);
+}
+
+:root:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+:root:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+:root:not(.dark) ::-webkit-scrollbar-thumb:active {
+  background: rgba(0, 0, 0, 0.35);
 }
 
 /* ── Animations ──────────────────────────────────────────────────────── */
@@ -182,6 +253,10 @@ a:hover {
   background: rgba(13, 17, 23, 0.88);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+
+:root:not(.dark) .nav-glass {
+  background: rgba(246, 248, 250, 0.88);
 }
 
 /* ── Detail page cards — subtle depth, no hover lift ─────────────────── */
@@ -282,4 +357,68 @@ a:hover {
     0 14px 36px rgba(0, 0, 0, 0.55),
     0 0 60px rgba(63, 185, 80, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* ── Light mode component overrides ──────────────────────────────────── */
+
+:root:not(.dark) .detail-card {
+  background: linear-gradient(175deg, rgba(255, 255, 255, 1) 0%, rgba(246, 248, 250, 1) 100%);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --color-text-secondary: #57606a;
+  --color-text-muted: #6e7781;
+  --color-text-tertiary: #6e7781;
+}
+
+:root:not(.dark) .session-card {
+  background: linear-gradient(175deg, rgba(255, 255, 255, 1) 0%, rgba(246, 248, 250, 1) 100%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 3px 10px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --color-text-secondary: #57606a;
+  --color-text-muted: #6e7781;
+  --color-text-tertiary: #6e7781;
+}
+
+:root:not(.dark) .session-card:hover {
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    0 14px 36px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root:not(.dark) .session-card.card-merge-ready {
+  background: linear-gradient(175deg, rgba(230, 255, 237, 1) 0%, rgba(214, 246, 224, 1) 100%);
+  box-shadow:
+    0 0 0 1px rgba(26, 127, 55, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 3px 10px rgba(0, 0, 0, 0.04),
+    0 0 40px rgba(26, 127, 55, 0.08);
+}
+
+:root:not(.dark) .session-card.card-merge-ready:hover {
+  box-shadow:
+    0 0 0 1px rgba(26, 127, 55, 0.45),
+    0 4px 8px rgba(0, 0, 0, 0.08),
+    0 14px 36px rgba(0, 0, 0, 0.06),
+    0 0 60px rgba(26, 127, 55, 0.12);
+}
+
+:root:not(.dark) .orchestrator-btn {
+  background: linear-gradient(175deg, rgba(9, 105, 218, 0.1) 0%, rgba(9, 105, 218, 0.06) 100%);
+  border-color: rgba(9, 105, 218, 0.25);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+:root:not(.dark) .orchestrator-btn:hover {
+  background: linear-gradient(175deg, rgba(9, 105, 218, 0.15) 0%, rgba(9, 105, 218, 0.09) 100%);
+  border-color: rgba(9, 105, 218, 0.4);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(9, 105, 218, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
