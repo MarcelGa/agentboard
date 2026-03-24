@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, platform } from "node:os";
 import { accessSync, constants } from "node:fs";
-import { resolveTmux } from "@composio/ao-core";
+import { resolveTmux } from "@agentboard/ao-core";
 
 const execFileAsync = promisify(execFileCb);
 
