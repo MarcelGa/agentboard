@@ -1015,20 +1015,20 @@ export interface ProjectConfig {
   };
 
   /**
-   * Path to a project-specific .env file (relative to the server's working
-   * directory — where .env.local lives — or absolute / ~ prefixed).
+   * Path to a project-specific .env file (relative to the config file directory,
+   * or absolute / ~ prefixed).
    * Variables defined here override the global .env.local for this project only.
    * Useful when multiple projects use the same tracker plugin (e.g. Jira) but
    * with different organisations or credentials.
    *
-   * Relative paths are resolved against process.cwd() of the running server
-   * (i.e. the same directory as .env.local).
+   * Relative paths are resolved from the same directory as agent-orchestrator.yaml
+   * (i.e. next to .env.local).
    *
    * Example in agent-orchestrator.yaml:
    *   projects:
    *     my-app:
    *       path: ~/my-app
-   *       envFile: .env.myapp.local   # resolves relative to process.cwd()
+   *       envFile: .env.myapp.local   # resolves to <config-dir>/.env.myapp.local
    */
   envFile?: string;
 
