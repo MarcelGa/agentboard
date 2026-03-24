@@ -3,7 +3,7 @@
  */
 
 import { open, stat } from "node:fs/promises";
-import type { OrchestratorConfig } from "./types.js";
+import type { OrchestratorConfig, ProjectConfig } from "./types.js";
 
 /**
  * POSIX-safe shell escaping: wraps value in single quotes,
@@ -51,9 +51,10 @@ export function normalizeRetryConfig(
   const rawRetries = config?.retries as number | undefined;
   const rawDelay = config?.retryDelayMs as number | undefined;
   const retries = Number.isFinite(rawRetries) ? Math.max(0, rawRetries ?? 0) : defaults.retries;
-  const retryDelayMs = Number.isFinite(rawDelay) && (rawDelay ?? -1) >= 0
-    ? (rawDelay as number)
-    : defaults.retryDelayMs;
+  const retryDelayMs =
+    Number.isFinite(rawDelay) && (rawDelay ?? -1) >= 0
+      ? (rawDelay as number)
+      : defaults.retryDelayMs;
   return { retries, retryDelayMs };
 }
 
@@ -148,4 +149,23 @@ export function resolveProjectIdForSessionId(
     }
   }
   return undefined;
+}
+
+/**
+ * Resolve an environment variable for a specific project.
+ *
+ * Lookup order:
+ *   1. `project.envOverrides[key]` — variables from the project-specific envFile
+ *   2. `process.env[key]`          — global environment (populated from .env.local)
+ *
+ * This allows per-project secrets (e.g. different Jira organisations) while
+ * keeping the global .env.local as a default for projects that don't define an
+ * envFile.
+ *
+ * @param key     Environment variable name (e.g. "JIRA_API_TOKEN")
+ * @param project The ProjectConfig for the current operation
+ * @returns The resolved value, or `undefined` if not set anywhere
+ */
+export function resolveEnv(key: string, project: ProjectConfig): string | undefined {
+  return project.envOverrides?.[key] ?? process.env[key];
 }

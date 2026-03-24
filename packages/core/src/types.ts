@@ -1013,6 +1013,28 @@ export interface ProjectConfig {
     /** Require human approval before executing decomposed plans (default: true) */
     requireApproval: boolean;
   };
+
+  /**
+   * Path to a project-specific .env file (relative to project path or absolute).
+   * Variables defined here override the global .env.local for this project only.
+   * Useful when multiple projects use the same tracker plugin (e.g. Jira) but
+   * with different organisations or credentials.
+   *
+   * Example in agent-orchestrator.yaml:
+   *   projects:
+   *     my-app:
+   *       path: ~/my-app
+   *       envFile: .env.agentboard   # resolves to ~/my-app/.env.agentboard
+   */
+  envFile?: string;
+
+  /**
+   * Resolved environment variable overrides for this project.
+   * Populated at config-load time by merging the global .env.local baseline
+   * with the project-specific envFile. Never set this manually in YAML.
+   * @internal
+   */
+  envOverrides?: Record<string, string>;
 }
 
 export interface TrackerColumnConfig {
