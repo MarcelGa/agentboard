@@ -4,12 +4,60 @@
  * Uses child_process.execFile for safe command execution (no shell injection).
  */
 
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { accessSync, constants } from "node:fs";
+
+/** Well-known tmux install paths to probe when tmux is not on PATH */
+const TMUX_FALLBACK_PATHS = [
+  "/opt/homebrew/bin/tmux", // macOS ARM (Homebrew)
+  "/usr/local/bin/tmux", // macOS Intel (Homebrew)
+  "/usr/bin/tmux", // Linux
+];
+
+/** Cached resolved path to the tmux executable */
+let resolvedTmuxPath: string | undefined;
+
+/**
+ * Resolve the path to the tmux executable.
+ * First tries `which` to respect the current PATH, then probes well-known
+ * install locations so that environments with a minimal PATH still work.
+ *
+ * Result is cached after the first successful resolution.
+ */
+export function resolveTmux(): string {
+  if (resolvedTmuxPath !== undefined) return resolvedTmuxPath;
+
+  // 1. Try which to respect current PATH
+  try {
+    const found = execFileSync("which", ["tmux"], { encoding: "utf8", timeout: 3_000 }).trim();
+    if (found) {
+      resolvedTmuxPath = found;
+      return resolvedTmuxPath;
+    }
+  } catch {
+    // which not available or tmux not on PATH — fall through
+  }
+
+  // 2. Probe well-known install paths
+  for (const candidate of TMUX_FALLBACK_PATHS) {
+    try {
+      accessSync(candidate, constants.X_OK);
+      resolvedTmuxPath = candidate;
+      return resolvedTmuxPath;
+    } catch {
+      // not found at this path
+    }
+  }
+
+  // 3. Last resort: bare name — lets the OS surface a clear error
+  resolvedTmuxPath = "tmux";
+  return resolvedTmuxPath;
+}
 
 /** Run a tmux command and return stdout. */
 function tmux(...args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile("tmux", args, { timeout: 10_000 }, (error, stdout, stderr) => {
+    execFile(resolveTmux(), args, { timeout: 10_000 }, (error, stdout, stderr) => {
       if (error) {
         // tmux exits non-zero for many benign cases (no sessions, etc.)
         reject(new Error(`tmux ${args[0]} failed: ${stderr || error.message}`));

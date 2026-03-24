@@ -1,44 +1,104 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import * as childProcess from "node:child_process";
-import * as fs from "node:fs";
 import type { ProjectConfig } from "@composio/ao-core";
+import type * as IndexModule from "../index.js";
 
-// Mock node:child_process with custom promisify support
+// ---------------------------------------------------------------------------
+// Mocks — factories are re-evaluated after each vi.resetModules() call
+// ---------------------------------------------------------------------------
+
 vi.mock("node:child_process", () => {
   const mockExecFile = vi.fn();
   (mockExecFile as any)[Symbol.for("nodejs.util.promisify.custom")] = vi.fn();
   return { execFile: mockExecFile };
 });
 
-// Mock node:fs
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   rmSync: vi.fn(),
   mkdirSync: vi.fn(),
   readdirSync: vi.fn(),
+  accessSync: () => {
+    throw new Error("not found");
+  },
+  constants: { X_OK: 1 },
 }));
 
-// Mock node:os
 vi.mock("node:os", () => ({
   homedir: () => "/mock-home",
+  platform: () => "linux",
 }));
 
-// Get reference to the promisify-custom mock — this is what the plugin actually calls
-const mockExecFileAsync = (childProcess.execFile as any)[
-  Symbol.for("nodejs.util.promisify.custom")
-] as ReturnType<typeof vi.fn>;
+// ---------------------------------------------------------------------------
+// Per-test references — updated in beforeEach after resetModules
+// ---------------------------------------------------------------------------
 
-/** Queue a successful git command with the given stdout. */
+let clonePlugin: (typeof IndexModule)["default"];
+let manifest: (typeof IndexModule)["manifest"];
+let create: (typeof IndexModule)["create"];
+let mockExecFileAsync: ReturnType<typeof vi.fn>;
+let mockExistsSync: ReturnType<typeof vi.fn>;
+let mockRmSync: ReturnType<typeof vi.fn>;
+let mockMkdirSync: ReturnType<typeof vi.fn>;
+let mockReaddirSync: ReturnType<typeof vi.fn>;
+
+// Custom response queue for git commands (skips which/where from resolveGit)
+let gitResponses: Array<{ stdout: string; stderr: string } | Error>;
+
+// ---------------------------------------------------------------------------
+// Reset module cache and re-import before each test so that the module-level
+// `resolvedGitPath` variable starts as `undefined` for every test.
+// ---------------------------------------------------------------------------
+
+beforeEach(async () => {
+  vi.clearAllMocks();
+  vi.resetModules();
+
+  const childProcess = await import("node:child_process");
+  const fs = await import("node:fs");
+
+  mockExecFileAsync = (childProcess.execFile as any)[
+    Symbol.for("nodejs.util.promisify.custom")
+  ] as ReturnType<typeof vi.fn>;
+
+  mockExistsSync = fs.existsSync as ReturnType<typeof vi.fn>;
+  mockRmSync = fs.rmSync as ReturnType<typeof vi.fn>;
+  mockMkdirSync = fs.mkdirSync as ReturnType<typeof vi.fn>;
+  mockReaddirSync = fs.readdirSync as ReturnType<typeof vi.fn>;
+
+  // Reset the custom response queue
+  gitResponses = [];
+
+  // Implementation that handles which/where from resolveGit() transparently
+  // and pops from the custom gitResponses queue for all other calls.
+  mockExecFileAsync.mockImplementation((cmd: string) => {
+    if (cmd === "which" || cmd === "where") {
+      return Promise.reject(new Error("not found"));
+    }
+    const next = gitResponses.shift();
+    if (next instanceof Error) return Promise.reject(next);
+    if (next) return Promise.resolve(next);
+    return Promise.resolve({ stdout: "\n", stderr: "" });
+  });
+
+  // Re-import the module under test so resolvedGitPath starts as undefined
+  const mod = await import("../index.js");
+  clonePlugin = mod.default;
+  manifest = mod.manifest;
+  create = mod.create;
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function mockGitSuccess(stdout: string) {
-  mockExecFileAsync.mockResolvedValueOnce({ stdout: stdout + "\n", stderr: "" });
+  gitResponses.push({ stdout: stdout + "\n", stderr: "" });
 }
 
-/** Queue a failed git command. */
 function mockGitError(message: string) {
-  mockExecFileAsync.mockRejectedValueOnce(new Error(message));
+  gitResponses.push(new Error(message));
 }
 
-/** Create a ProjectConfig for testing. */
 function makeProject(overrides?: Partial<ProjectConfig>): ProjectConfig {
   return {
     name: "test-project",
@@ -50,12 +110,10 @@ function makeProject(overrides?: Partial<ProjectConfig>): ProjectConfig {
   };
 }
 
-// Import after mocks are set up
-import clonePlugin, { manifest, create } from "../index.js";
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+/** Return only the git command calls (excluding which/where from resolveGit) */
+function gitCalls() {
+  return mockExecFileAsync.mock.calls.filter((call) => call[0] !== "which" && call[0] !== "where");
+}
 
 // ---------------------------------------------------------------------------
 // manifest
@@ -89,7 +147,7 @@ describe("create()", () => {
     // Setup: remote URL lookup
     mockGitSuccess("https://github.com/test/repo.git");
     // existsSync: workspace path does not exist yet
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     // git clone
     mockGitSuccess("");
     // git checkout -b
@@ -109,7 +167,7 @@ describe("create()", () => {
     const workspace = create({ cloneDir: "~/custom-clones" });
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     mockGitSuccess("");
     mockGitSuccess("");
 
@@ -133,7 +191,7 @@ describe("workspace.create()", () => {
 
     // 1: git remote get-url origin
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     // 2: git clone
     mockGitSuccess("");
     // 3: git checkout -b
@@ -146,10 +204,9 @@ describe("workspace.create()", () => {
       project: makeProject(),
     });
 
-    // First call should be git remote get-url origin
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(1, "git", ["remote", "get-url", "origin"], {
-      cwd: "/repo/path",
-    });
+    // First git call should be git remote get-url origin
+    const calls = gitCalls();
+    expect(calls[0]).toEqual(["git", ["remote", "get-url", "origin"], { cwd: "/repo/path" }]);
   });
 
   it("falls back to local path when remote URL lookup fails", async () => {
@@ -157,7 +214,7 @@ describe("workspace.create()", () => {
 
     // 1: git remote get-url origin FAILS
     mockGitError("fatal: not a git repository");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     // 2: git clone (uses local path as remoteUrl)
     mockGitSuccess("");
     // 3: git checkout -b
@@ -171,9 +228,8 @@ describe("workspace.create()", () => {
     });
 
     // Clone should use local path as the remote URL
-    const cloneCall = mockExecFileAsync.mock.calls[1];
-    expect(cloneCall[0]).toBe("git");
-    const cloneArgs = cloneCall[1] as string[];
+    const calls = gitCalls();
+    const cloneArgs = calls[1][1] as string[];
     // The remote URL argument (after --reference repoPath --branch defaultBranch) is the 6th arg
     expect(cloneArgs[5]).toBe("/repo/path");
   });
@@ -182,7 +238,7 @@ describe("workspace.create()", () => {
     const workspace = create();
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     mockGitSuccess("");
     mockGitSuccess("");
 
@@ -193,15 +249,19 @@ describe("workspace.create()", () => {
       project: makeProject({ defaultBranch: "develop" }),
     });
 
-    // The clone call (second call overall)
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(2, "git", [
-      "clone",
-      "--reference",
-      "/repo/path",
-      "--branch",
-      "develop",
-      "https://github.com/test/repo.git",
-      "/mock-home/.ao-clones/proj/sess",
+    // The clone call (second git call)
+    const calls = gitCalls();
+    expect(calls[1]).toEqual([
+      "git",
+      [
+        "clone",
+        "--reference",
+        "/repo/path",
+        "--branch",
+        "develop",
+        "https://github.com/test/repo.git",
+        "/mock-home/.ao-clones/proj/sess",
+      ],
     ]);
   });
 
@@ -209,7 +269,7 @@ describe("workspace.create()", () => {
     const workspace = create();
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     mockGitSuccess("");
     // git checkout -b feat/new-branch
     mockGitSuccess("");
@@ -221,20 +281,20 @@ describe("workspace.create()", () => {
       project: makeProject(),
     });
 
-    // Third call: checkout -b
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-      3,
+    // Third git call: checkout -b
+    const calls = gitCalls();
+    expect(calls[2]).toEqual([
       "git",
       ["checkout", "-b", "feat/new-branch"],
       { cwd: "/mock-home/.ao-clones/proj/sess" },
-    );
+    ]);
   });
 
   it("falls back to plain checkout when branch already exists", async () => {
     const workspace = create();
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     mockGitSuccess("");
     // git checkout -b fails (branch exists)
     mockGitError("fatal: A branch named 'feat/existing' already exists");
@@ -248,10 +308,13 @@ describe("workspace.create()", () => {
       project: makeProject(),
     });
 
-    // Fourth call: plain checkout
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(4, "git", ["checkout", "feat/existing"], {
-      cwd: "/mock-home/.ao-clones/proj/sess",
-    });
+    // Fourth git call: plain checkout
+    const calls = gitCalls();
+    expect(calls[3]).toEqual([
+      "git",
+      ["checkout", "feat/existing"],
+      { cwd: "/mock-home/.ao-clones/proj/sess" },
+    ]);
 
     expect(info.branch).toBe("feat/existing");
   });
@@ -262,9 +325,7 @@ describe("workspace.create()", () => {
     mockGitSuccess("https://github.com/test/repo.git");
     // existsSync: first call for "already exists" check => false
     // second call inside catch for cleanup check => true
-    (fs.existsSync as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
+    mockExistsSync.mockReturnValueOnce(false).mockReturnValueOnce(true);
     // git clone fails
     mockGitError("fatal: could not read from remote repository");
 
@@ -278,7 +339,7 @@ describe("workspace.create()", () => {
     ).rejects.toThrow('Failed to clone repo for session "sess"');
 
     // rmSync should be called to clean up
-    expect(fs.rmSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj/sess", {
+    expect(mockRmSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj/sess", {
       recursive: true,
       force: true,
     });
@@ -288,7 +349,7 @@ describe("workspace.create()", () => {
     const workspace = create();
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     // git clone succeeds
     mockGitSuccess("");
     // git checkout -b fails
@@ -306,7 +367,7 @@ describe("workspace.create()", () => {
     ).rejects.toThrow('Failed to checkout branch "bad-branch" in clone');
 
     // rmSync should be called to clean up the orphaned clone
-    expect(fs.rmSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj/sess", {
+    expect(mockRmSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj/sess", {
       recursive: true,
       force: true,
     });
@@ -317,7 +378,7 @@ describe("workspace.create()", () => {
 
     mockGitSuccess("https://github.com/test/repo.git");
     // existsSync returns true — path already exists
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
 
     await expect(
       workspace.create({
@@ -387,7 +448,7 @@ describe("workspace.create()", () => {
     const workspace = create();
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     mockGitSuccess("");
     mockGitSuccess("");
 
@@ -410,7 +471,7 @@ describe("workspace.create()", () => {
     const workspace = create();
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     mockGitSuccess("");
     mockGitSuccess("");
 
@@ -421,14 +482,14 @@ describe("workspace.create()", () => {
       project: makeProject(),
     });
 
-    expect(fs.mkdirSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj", { recursive: true });
+    expect(mockMkdirSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj", { recursive: true });
   });
 
   it("expands ~ in project path", async () => {
     const workspace = create();
 
     mockGitSuccess("https://github.com/test/repo.git");
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
     mockGitSuccess("");
     mockGitSuccess("");
 
@@ -440,9 +501,12 @@ describe("workspace.create()", () => {
     });
 
     // git remote get-url should use expanded path
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(1, "git", ["remote", "get-url", "origin"], {
-      cwd: "/mock-home/my-repos/project",
-    });
+    const calls = gitCalls();
+    expect(calls[0]).toEqual([
+      "git",
+      ["remote", "get-url", "origin"],
+      { cwd: "/mock-home/my-repos/project" },
+    ]);
   });
 });
 
@@ -452,11 +516,11 @@ describe("workspace.create()", () => {
 describe("workspace.destroy()", () => {
   it("removes directory with rmSync when it exists", async () => {
     const workspace = create();
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
 
     await workspace.destroy("/mock-home/.ao-clones/proj/sess");
 
-    expect(fs.rmSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj/sess", {
+    expect(mockRmSync).toHaveBeenCalledWith("/mock-home/.ao-clones/proj/sess", {
       recursive: true,
       force: true,
     });
@@ -464,13 +528,13 @@ describe("workspace.destroy()", () => {
 
   it("does not throw when directory does not exist", async () => {
     const workspace = create();
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
 
     await expect(
       workspace.destroy("/mock-home/.ao-clones/proj/nonexistent"),
     ).resolves.toBeUndefined();
 
-    expect(fs.rmSync).not.toHaveBeenCalled();
+    expect(mockRmSync).not.toHaveBeenCalled();
   });
 });
 
@@ -480,7 +544,7 @@ describe("workspace.destroy()", () => {
 describe("workspace.list()", () => {
   it("returns empty array when project directory does not exist", async () => {
     const workspace = create();
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
 
     const result = await workspace.list("myproject");
 
@@ -489,9 +553,9 @@ describe("workspace.list()", () => {
 
   it("returns workspace entries with branch info", async () => {
     const workspace = create();
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
 
-    (fs.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([
+    mockReaddirSync.mockReturnValue([
       { name: "session-1", isDirectory: () => true },
       { name: "session-2", isDirectory: () => true },
     ]);
@@ -518,19 +582,24 @@ describe("workspace.list()", () => {
     ]);
 
     // Verify git branch --show-current was called for each entry
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(1, "git", ["branch", "--show-current"], {
-      cwd: "/mock-home/.ao-clones/myproject/session-1",
-    });
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(2, "git", ["branch", "--show-current"], {
-      cwd: "/mock-home/.ao-clones/myproject/session-2",
-    });
+    const calls = gitCalls();
+    expect(calls[0]).toEqual([
+      "git",
+      ["branch", "--show-current"],
+      { cwd: "/mock-home/.ao-clones/myproject/session-1" },
+    ]);
+    expect(calls[1]).toEqual([
+      "git",
+      ["branch", "--show-current"],
+      { cwd: "/mock-home/.ao-clones/myproject/session-2" },
+    ]);
   });
 
   it("skips non-directory entries", async () => {
     const workspace = create();
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
 
-    (fs.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([
+    mockReaddirSync.mockReturnValue([
       { name: "session-1", isDirectory: () => true },
       { name: "some-file.txt", isDirectory: () => false },
       { name: ".DS_Store", isDirectory: () => false },
@@ -543,16 +612,16 @@ describe("workspace.list()", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].sessionId).toBe("session-1");
-    expect(mockExecFileAsync).toHaveBeenCalledTimes(1);
+    expect(gitCalls()).toHaveLength(1);
   });
 
   it("skips invalid git repos with console warning", async () => {
     const workspace = create();
-    (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    (fs.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([
+    mockReaddirSync.mockReturnValue([
       { name: "valid-session", isDirectory: () => true },
       { name: "corrupt-session", isDirectory: () => true },
     ]);
@@ -611,15 +680,20 @@ describe("workspace.postCreate()", () => {
 
     await workspace.postCreate!(info, project);
 
-    expect(mockExecFileAsync).toHaveBeenCalledTimes(2);
+    const calls = gitCalls();
+    expect(calls).toHaveLength(2);
 
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(1, "sh", ["-c", "pnpm install"], {
-      cwd: "/mock-home/.ao-clones/proj/sess",
-    });
+    expect(calls[0]).toEqual([
+      "sh",
+      ["-c", "pnpm install"],
+      { cwd: "/mock-home/.ao-clones/proj/sess" },
+    ]);
 
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(2, "sh", ["-c", "pnpm build"], {
-      cwd: "/mock-home/.ao-clones/proj/sess",
-    });
+    expect(calls[1]).toEqual([
+      "sh",
+      ["-c", "pnpm build"],
+      { cwd: "/mock-home/.ao-clones/proj/sess" },
+    ]);
   });
 
   it("does nothing when postCreate is undefined", async () => {
@@ -636,7 +710,7 @@ describe("workspace.postCreate()", () => {
 
     await workspace.postCreate!(info, project);
 
-    expect(mockExecFileAsync).not.toHaveBeenCalled();
+    expect(gitCalls()).toHaveLength(0);
   });
 
   it("does nothing when postCreate is empty array", async () => {
@@ -653,6 +727,6 @@ describe("workspace.postCreate()", () => {
 
     await workspace.postCreate!(info, project);
 
-    expect(mockExecFileAsync).not.toHaveBeenCalled();
+    expect(gitCalls()).toHaveLength(0);
   });
 });
