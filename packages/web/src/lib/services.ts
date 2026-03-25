@@ -60,6 +60,16 @@ const globalForServices = globalThis as typeof globalThis & {
   _aoServicesInit?: Promise<Services>;
 };
 
+/**
+ * Clear the cached services singleton so the next call to getServices()
+ * re-reads agent-orchestrator.yaml and any per-project envFile overrides
+ * from disk. Used by the hot-reload API route.
+ */
+export function resetServices(): void {
+  globalForServices._aoServices = undefined;
+  globalForServices._aoServicesInit = undefined;
+}
+
 /** Get (or lazily initialize) the core services singleton. */
 export function getServices(): Promise<Services> {
   if (globalForServices._aoServices) {
