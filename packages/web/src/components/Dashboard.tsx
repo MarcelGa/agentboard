@@ -19,6 +19,7 @@ import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { ProjectSidebar } from "./ProjectSidebar";
 import { BacklogPanel, type BacklogState } from "./BacklogPanel";
 import { ThemeToggle } from "./ThemeToggle";
+import { HotReloadButton } from "./HotReloadButton";
 import type { ProjectInfo } from "@/lib/project-name";
 
 interface DashboardProps {
@@ -269,6 +270,7 @@ export function Dashboard({
             <StatusLine stats={liveStats} />
           </div>
           <div className="flex items-center gap-2">
+            <HotReloadButton />
             <ThemeToggle />
             {!allProjectsView && <OrchestratorControl orchestrators={activeOrchestrators} />}
           </div>
